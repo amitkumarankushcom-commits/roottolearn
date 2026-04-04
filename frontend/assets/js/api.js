@@ -5,8 +5,8 @@ const API = (() => {
     // Local development
     return 'http://localhost:4000/api';
   } else {
-    // Production (Netlify)
-    return 'https://roottolearn-api.onrender.com/api'; // Replace with your actual backend URL
+    // Production (Netlify) — proxied via netlify.toml to avoid CORS issues
+    return '/api';
   }
 })();
 
