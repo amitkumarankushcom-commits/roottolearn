@@ -6,7 +6,7 @@ const API = (() => {
     return 'http://localhost:4000/api';
   } else {
     // Production (Netlify)
-    return 'https://your-backend-api.onrender.com/api'; // Replace with your actual backend URL
+    return 'https://roottolearn-api.onrender.com/api'; // Replace with your actual backend URL
   }
 })();
 
