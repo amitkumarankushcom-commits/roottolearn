@@ -20,6 +20,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // ── CORS
 const origins = (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost').split(',').map(s=>s.trim());
 app.use(cors({ origin: (o, cb) => (!o || origins.includes(o)) ? cb(null,true) : cb(new Error('CORS blocked')), credentials: true }));
+// app.use(cors());
 
 // ── Body parsers & compression (BEFORE routes)
 app.use(compression());

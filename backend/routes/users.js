@@ -5,7 +5,7 @@ const { body, validationResult } = require('express-validator');
 const db = require('../config/db');
 const { requireUser } = require('../middleware/auth');
 
-// GET /api/users/me
+// GET /api/users/me — fetch logged-in user profile
 router.get('/me', requireUser, async (req, res) => {
   try {
     const [[u]] = await db.execute(
