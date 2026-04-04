@@ -17,10 +17,40 @@ app.set('trust proxy', 1);
 // ── Security headers
 app.use(helmet({ contentSecurityPolicy: false }));
 
-// ── CORS
-const origins = (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost').split(',').map(s=>s.trim());
-app.use(cors({ origin: (o, cb) => (!o || origins.includes(o)) ? cb(null,true) : cb(new Error('CORS blocked')), credentials: true }));
-// app.use(cors());
+// ── CORS Configuration
+const allowedOrigins = [
+  'https://roottolearn999.netlify.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+];
+
+// Also add from env if provided
+if (process.env.CORS_ORIGINS) {
+  const envOrigins = process.env.CORS_ORIGINS.split(',').map(s => s.trim());
+  allowedOrigins.push(...envOrigins);
+}
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or Postman)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] Blocked request from origin: ${origin}`);
+      callback(new Error('CORS Not Allowed'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+
+// ── Preflight requests
+app.options('*', cors(corsOptions));
 
 
 // ── Body parsers & compression (BEFORE routes)
@@ -69,6 +99,18 @@ if (process.env.NODE_ENV !== 'production') {
 // ── Health check
 app.get('/health', (_, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
+// ── Diagnostic endpoint (for troubleshooting)
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    port: PORT,
+    corsOrigins: allowedOrigins,
+    requestOrigin: req.headers.origin,
+  });
+});
+
 // ── 404
 app.use((_, res) => res.status(404).json({ error: 'Route not found.' }));
 
@@ -80,9 +122,14 @@ app.use((err, _, res, __) => {
 
 // ── Start server
 const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log('═══════════════════════════════════════════════════');
+  console.log('✅ RootToLearn API Server Started');
+  console.log('═══════════════════════════════════════════════════');
+  console.log(`Port: ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`CORS Origins: ${process.env.CORS_ORIGINS || 'default'}`);
+  console.log(`CORS Origins: ${allowedOrigins.join(', ')}`);
+  console.log('═══════════════════════════════════════════════════');
+  console.log(`Ready to accept requests at http://localhost:${PORT}`);
 });
 
 // ── Error handling
