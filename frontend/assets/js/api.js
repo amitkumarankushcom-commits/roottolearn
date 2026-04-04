@@ -1,5 +1,14 @@
 // frontend/assets/js/api.js — All API calls to backend
-const API = 'http://localhost:4000/api';
+// Dynamically set API URL based on environment
+const API = (() => {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    // Local development
+    return 'http://localhost:4000/api';
+  } else {
+    // Production (Netlify)
+    return 'https://your-backend-api.onrender.com/api'; // Replace with your actual backend URL
+  }
+})();
 
 // ── Token management (memory + sessionStorage)
 let _access = sessionStorage.getItem('siq_access') || null;
