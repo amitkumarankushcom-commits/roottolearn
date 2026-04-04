@@ -1,0 +1,194 @@
+<?
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23F7B731'/%3E%3Ctext y='24' x='5' font-size='21' font-weight='900' font-family='Arial' fill='%23000'%3ER%3C/text%3E%3C/svg%3E">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Reset Password — RootToLearn</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/forgot.css">
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="nav-logo" onclick="location.href='index.html'">
+      <div class="li">R</div>Root<span>To</span><span>Learn</span>
+    </div>
+    <div class="nav-links">
+      <button class="nl" onclick="location.href='index.html'">Home</button>
+      <button class="nl" onclick="location.href='pricing.html'">Pricing</button>
+    </div>
+    <div class="nav-right">
+      <button class="btn-ghost" onclick="location.href='login.html'">Sign In</button>
+      <button class="btn-accent" onclick="location.href='signup.html'">Get Started</button>
+    </div>
+  </nav>
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>Reset Password</h1>
+        <p>Forgot your password? We'll help you get back in.</p>
+      </div>
+
+      <!-- Step 1: Email Request -->
+      <div class="step" id="step1">
+        <form onsubmit="doForgot(event)">
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="emailIn" placeholder="you@example.com" required>
+          </div>
+          <button type="submit" class="btn-primary">Send Reset Link</button>
+        </form>
+        <div class="auth-footer">
+          <span>Remember your password? <a href="`login.html">Sign In</a></span>
+        </div>
+      </div>
+
+      <!-- Step 2: OTP Verification -->
+      <div class="step" id="step2" style="display: none;">
+        <div class="step-header">
+          <span class="step-num">2 of 3</span>
+          <p>Check your email for a verification code</p>
+        </div>
+        <form onsubmit="verifyOTP(event)">
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="emailVerify" readonly>
+          </div>
+          <div class="form-group">
+            <label>6-Digit Code</label>
+            <input type="text" id="otpIn" placeholder="000000" maxlength="6" pattern="[0-9]{6}" required>
+          </div>
+          <button type="submit" class="btn-primary">Verify Code</button>
+        </form>
+        <div class="auth-footer">
+          <button class="btn-text" onclick="doResend()">Didn't receive it? Resend</button>
+        </div>
+      </div>
+
+      <!-- Step 3: New Password -->
+      <div class="step" id="step3" style="display: none;">
+        <div class="step-header">
+          <span class="step-num">3 of 3</span>
+          <p>Create a new password</p>
+        </div>
+        <form onsubmit="resetPassword(event)">
+          <div class="form-group">
+            <label>New Password</label>
+            <div class="pass-wrapper">
+              <input type="password" id="newPassIn" placeholder="Min. 8 chars, 1 uppercase, 1 number" required>
+              <button type="button" class="toggle-pass" onclick="togglePassword('newPassIn')">👁️</button>
+            </div>
+            <div class="pwd-hint">
+              <span class="hint" id="h1">✓ At least 8 characters</span>
+              <span class="hint" id="h2">✗ Contains uppercase letter</span>
+              <span class="hint" id="h3">✗ Contains number</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <div class="pass-wrapper">
+              <input type="password" id="confirmPassIn" placeholder="Re-enter password" required>
+              <button type="button" class="toggle-pass" onclick="togglePassword('confirmPassIn')">👁️</button>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary">Reset Password</button>
+        </form>
+        <div class="auth-footer">
+          <span>Ready to sign in? <a href="`login.html">Sign In</a></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">
+    <span id="tIcon">✓</span>
+    <span id="tTxt">Message</span>
+  </div>
+
+  <script src="../assets/js/api.js?v=2"></script>
+  <script>
+    let S = { email: null, otp: null };
+
+    async function doForgot(e) {
+      e.preventDefault();
+      const email = document.getElementById('emailIn').value.trim();
+      if (!email) { toast('⚠️', 'Enter your email'); return; }
+      try {
+        const res = await auth.forgotPassword({ email });
+        if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
+        S.email = email;
+        document.getElementById('emailVerify').value = email;
+        document.getElementById('step1').style.display = 'none';
+        document.getElementById('step2').style.display = 'block';
+        toast('✓', 'OTP sent to your email');
+      } catch (err) { toast('✗', err.message); }
+    }
+
+    async function verifyOTP(e) {
+      e.preventDefault();
+      const otp = document.getElementById('otpIn').value.trim();
+      if (!/^\d{6}$/.test(otp)) { toast('⚠️', 'Enter 6-digit code'); return; }
+      try {
+        const res = await auth.verifyForgot({ email: S.email, otp });
+        if (!res.ok) throw new Error((await res.json()).error || 'Verification failed');
+        S.otp = otp;
+        document.getElementById('step2').style.display = 'none';
+        document.getElementById('step3').style.display = 'block';
+        toast('✓', 'Code verified! Set your new password');
+      } catch (err) { toast('✗', err.message); }
+    }
+
+    async function resetPassword(e) {
+      e.preventDefault();
+      const newPass = document.getElementById('newPassIn').value;
+      const confirmPass = document.getElementById('confirmPassIn').value;
+      
+      if (newPass !== confirmPass) { toast('✗', 'Passwords do not match'); return; }
+      if (!/^.{8,}$/.test(newPass)) { toast('⚠️', 'Password must be at least 8 characters'); return; }
+      if (!/[A-Z]/.test(newPass)) { toast('⚠️', 'Password must contain uppercase letter'); return; }
+      if (!/[0-9]/.test(newPass)) { toast('⚠️', 'Password must contain number'); return; }
+
+      try {
+        const res = await auth.resetPassword({ email: S.email, otp: S.otp, newPassword: newPass });
+        if (!res.ok) throw new Error((await res.json()).error || 'Reset failed');
+        toast('✓', 'Password reset! Redirecting to login...');
+        setTimeout(() => location.href = 'login.php', 2000);
+      } catch (err) { toast('✗', err.message); }
+    }
+
+    async function doResend() {
+      try {
+        const res = await auth.resendOTP({ email: S.email, purpose: 'forgot' });
+        if (!res.ok) throw new Error((await res.json()).error || 'Resend failed');
+        toast('✓', 'OTP resent to email');
+      } catch (err) { toast('✗', err.message); }
+    }
+
+    // Password strength hint
+    document.getElementById('newPassIn')?.addEventListener('input', (e) => {
+      const p = e.target.value;
+      document.getElementById('h1').classList.toggle('ok', p.length >= 8);
+      document.getElementById('h2').classList.toggle('ok', /[A-Z]/.test(p));
+      document.getElementById('h3').classList.toggle('ok', /[0-9]/.test(p));
+    });
+
+    function togglePassword(id) {
+      const inp = document.getElementById(id);
+      const btn = inp.closest('.pass-wrapper').querySelector('.toggle-pass');
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        inp.type = 'password';
+        btn.textContent = '👁️';
+      }
+    }
+  </script>
+</body>
+
+</html>
+

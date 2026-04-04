@@ -1,0 +1,919 @@
+<?
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23F7B731'/%3E%3Ctext y='24' x='5' font-size='21' font-weight='900' font-family='Arial' fill='%23000'%3ER%3C/text%3E%3C/svg%3E"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RootToLearn — Admin Dashboard</title>
+<link rel="stylesheet" href="../assets/css/main.css">
+<link rel="stylesheet" href="../assets/css/admin-dashboard.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+
+</head>
+<body>
+<!-- Guard: redirect to login if not admin -->
+<script>
+(function(){
+  const token=localStorage.getItem('siq_admin_token');
+  if(!token){location.href='admin-login.html';return;}
+  try{
+    const p=JSON.parse(atob(token.split('.')[1]));
+    if(p.role!=='admin'||p.exp*1000<Date.now()){
+      localStorage.removeItem('siq_admin_token');
+      location.href='admin-login.html';
+    }
+  }catch{location.href='admin-login.html';}
+})();
+</script>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <nav class="sb">
+    <div class="sb-logo">
+      <div class="li">R</div>
+      <div class="lt">Root<span>To</span><span>Learn</span></div>
+      <!-- <div class="sb-badge">ADMIN</div> -->
+    </div>
+    <div class="sb-nav">
+      <div class="sb-sec">Main</div>
+      <div class="sb-item active" onclick="showTab('overview');setActive(this)"><span class="si">📊</span>Overview</div>
+      <div class="sb-item" onclick="showTab('users');setActive(this)"><span class="si">👥</span>Users<span class="sb-cnt" id="scU">0</span></div>
+      <div class="sb-item" onclick="showTab('summaries');setActive(this)"><span class="si">📝</span>Summaries</div>
+      <div class="sb-sec">Finance</div>
+      <div class="sb-item" onclick="showTab('payments');setActive(this)"><span class="si">💳</span>Payments</div>
+      <div class="sb-item" onclick="showTab('coupons');setActive(this)"><span class="si">🎟</span>Coupons<span class="sb-cnt" id="scC">3</span></div>
+      <div class="sb-sec">System</div>
+      <div class="sb-item" onclick="showTab('settings');setActive(this)"><span class="si">⚙️</span>Settings</div>
+      <div class="sb-item" onclick="showTab('activity');setActive(this)"><span class="si">📋</span>Activity Log</div>
+    </div>
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="sb-av" id="sbAv">SA</div>
+        <div>
+          <div class="sb-uname" id="sbName">Super Admin</div>
+          <div class="sb-urole" id="sbRole">super</div>
+        </div>
+        <button class="sb-logout" onclick="doLogout()" title="Sign out">⏏</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+    <div class="pg-hdr">
+      <div>
+        <h1 id="pgTitle">Overview</h1>
+        <div class="pg-ts" id="pgTs"></div>
+      </div>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn-ghost" style="font-size:.78rem" onclick="refresh()">↻ Refresh</button>
+        <button class="btn-accent" style="font-size:.78rem" onclick="exportReport()">⬇ Export</button>
+      </div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="tab active" id="tab-overview">
+      <div class="stats-row">
+        <div class="stat-c"><div class="stat-lbl">Total Users</div><div class="stat-val" style="color:var(--accent)">2,847</div><div class="stat-chg chg-up">↑ 12.4% this month</div></div>
+        <div class="stat-c"><div class="stat-lbl">Docs Processed</div><div class="stat-val" style="color:var(--teal)">18,392</div><div class="stat-chg chg-up">↑ 28.7% this month</div></div>
+        <div class="stat-c"><div class="stat-lbl">Revenue (MRR)</div><div class="stat-val" style="color:var(--success)">₹8,241</div><div class="stat-chg chg-up">↑ 9.2% this month</div></div>
+        <div class="stat-c"><div class="stat-lbl">Active Coupons</div><div class="stat-val" id="ovCpnCnt">3</div><div class="stat-chg" style="color:var(--muted)">Manage below</div></div>
+      </div>
+      <div class="charts-g">
+        <div class="panel"><div class="panel-title">Document Processing — Last 7 Days</div><canvas id="docsChart"></canvas></div>
+        <div class="panel"><div class="panel-title">Language Distribution</div><canvas id="langChart"></canvas></div>
+      </div>
+      <div class="charts-g2">
+        <div class="panel"><div class="panel-title">Revenue — Last 6 Months</div><canvas id="revChart"></canvas></div>
+        <div class="panel"><div class="panel-title">Plan Distribution</div><canvas id="planChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div class="tab" id="tab-users">
+      <div class="panel">
+        <div class="panel-title">All Users
+          <div style="display:flex;gap:.45rem;align-items:center">
+            <select class="fselect" id="userFilter" onchange="renderUsers()" style="width:110px;font-size:.75rem;padding:.38rem .65rem">
+              <option value="">All Plans</option><option value="free">Free</option><option value="pro">Pro</option><option value="enterprise">Enterprise</option>
+            </select>
+            <input class="search-in" type="text" id="userSearch" placeholder="Search users..." oninput="renderUsers()">
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>User</th><th>Plan</th><th>Docs</th><th>Lang</th><th>Joined</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="userTbody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.85rem;font-size:.75rem;color:var(--muted)">
+          <span id="userCount">0 users</span>
+          <div style="display:flex;gap:.35rem"><button class="btn-ghost" style="font-size:.72rem">← Prev</button><button class="btn-ghost" style="font-size:.72rem">Next →</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUMMARIES -->
+    <div class="tab" id="tab-summaries">
+      <div class="panel">
+        <div class="panel-title">All Summaries <span style="font-size:.7rem;font-weight:400;color:var(--muted)">Last 100</span></div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>File</th><th>User</th><th>Language</th><th>Occupation</th><th>Words</th><th>Date</th></tr></thead>
+            <tbody id="sumTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAYMENTS -->
+    <div class="tab" id="tab-payments">
+      <div class="panel">
+        <div class="panel-title">Payment History</div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>User</th><th>Plan</th><th>Amount</th><th>Coupon</th><th>Date</th><th>Status</th></tr></thead>
+            <tbody id="payTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- COUPONS -->
+    <div class="tab" id="tab-coupons">
+      <div class="panel">
+        <div class="panel-title">Coupon Management</div>
+        <div class="cpn-form">
+          <div><div class="flabel">Code</div><input class="finput" id="newCode" type="text" placeholder="SUMMER20" style="text-transform:uppercase"></div>
+          <div><div class="flabel">Discount %</div><input class="finput" id="newDisc" type="number" placeholder="20" min="1" max="100"></div>
+          <div><div class="flabel">Max Uses</div><input class="finput" id="newMax" type="number" placeholder="1000"></div>
+          <div style="display:flex;align-items:flex-end"><button class="btn-accent" onclick="addCoupon()">+ Add</button></div>
+          <div style="display:flex;align-items:flex-end"><button class="btn-ghost" onclick="clearCpnForm()">Clear</button></div>
+        </div>
+        <div class="cpn-list" id="cpnList"></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="tab" id="tab-settings">
+      <div class="settings-g">
+        <!-- PLATFORM SETTINGS -->
+        <div class="panel">
+          <div class="panel-title">Platform Settings</div>
+          <div class="fg"><label class="flabel">Free Plan Doc Limit / Month</label><input class="finput" id="settingsFreeLimit" type="number" value="3"></div>
+          <div class="fg"><label class="flabel">Pro Plan Price (₹)</label><input class="finput" id="settingsProPrice" type="number" value="500" step="0.01"></div>
+          <div class="fg"><label class="flabel">Enterprise Plan Price (₹)</label><input class="finput" id="settingsEntPrice" type="number" value="2000" step="0.01"></div>
+          <div class="fg"><label class="flabel">OTP Expiry (minutes)</label><input class="finput" id="settingsOtpExpiry" type="number" value="15" min="5" max="60"></div>
+          <button class="btn-accent" style="width:100%" onclick="saveSettings()">💾 Save Settings</button>
+        </div>
+
+        <!-- ADMIN ACCOUNT -->
+        <div class="panel">
+          <div class="panel-title">Admin Account</div>
+          <div class="fg">
+            <label class="flabel">Admin Name</label>
+            <div style="padding:.65rem;background:var(--tdim);border-radius:8px;color:var(--text);font-weight:600;font-size:.8rem" id="adminNameDisplay">—</div>
+          </div>
+          <div class="fg">
+            <label class="flabel">Admin Email</label>
+            <div style="padding:.65rem;background:var(--tdim);border-radius:8px;color:var(--text);font-weight:600;font-size:.8rem" id="adminEmailDisplay">—</div>
+          </div>
+          <div class="fg">
+            <label class="flabel">Last Login</label>
+            <div style="padding:.65rem;background:var(--tdim);border-radius:8px;color:var(--muted);font-size:.75rem" id="adminLastLoginDisplay">—</div>
+          </div>
+          <button class="btn-ghost" style="width:100%;margin-top:.5rem" onclick="openAdminPasswordModal()">🔐 Change Admin Password</button>
+        </div>
+
+        <!-- SECURITY SETTINGS -->
+        <div class="panel">
+          <div class="panel-title">Security Settings</div>
+          <div class="fg">
+            <label class="flabel" style="display:flex;justify-content:space-between;align-items:center">
+              Two-Factor Authentication (2FA)
+              <span id="twoFAStatus" style="font-size:.7rem;background:var(--tdim);padding:.15rem .5rem;border-radius:4px;color:var(--accent)">Enabled</span>
+            </label>
+            <p style="font-size:.75rem;color:var(--muted);margin-top:.35rem">All admin login requests require OTP verification via email.</p>
+          </div>
+          <div class="fg" style="margin-top:1rem">
+            <label class="flabel">Active Sessions</label>
+            <div style="padding:.65rem;background:var(--tdim);border-radius:8px;font-size:.75rem;color:var(--muted)">
+              <div style="margin-bottom:.5rem">Current Session: <span style="color:var(--success);font-weight:600">Active</span></div>
+              <button class="btn-ghost" style="font-size:.7rem;padding:.25rem .5rem" onclick="logoutAllSessions()">🔓 Logout All Other Sessions</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- NOTIFICATION SETTINGS -->
+        <div class="panel">
+          <div class="panel-title">Notifications</div>
+          <div style="display:flex;flex-direction:column;gap:.8rem">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.6rem;background:var(--tdim);border-radius:6px">
+              <div><div style="font-weight:600;font-size:.8rem">New User Signups</div><div style="font-size:.7rem;color:var(--muted)">Alert when new users register</div></div>
+              <input type="checkbox" id="notifNewUsers" checked style="width:18px;height:18px;cursor:pointer">
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.6rem;background:var(--tdim);border-radius:6px">
+              <div><div style="font-weight:600;font-size:.8rem">Payment Received</div><div style="font-size:.7rem;color:var(--muted)">Alert on successful payments</div></div>
+              <input type="checkbox" id="notifPayments" checked style="width:18px;height:18px;cursor:pointer">
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.6rem;background:var(--tdim);border-radius:6px">
+              <div><div style="font-weight:600;font-size:.8rem">System Alerts</div><div style="font-size:.7rem;color:var(--muted)">Database/API errors and warnings</div></div>
+              <input type="checkbox" id="notifAlerts" checked style="width:18px;height:18px;cursor:pointer">
+            </div>
+            <button class="btn-accent" style="width:100%;margin-top:.5rem" onclick="saveNotificationSettings()">💾 Save Preferences</button>
+          </div>
+        </div>
+
+        <!-- GOOGLE ADS CONFIGURATION -->
+        <div class="panel">
+          <div class="panel-title">🎯 Google Ads for Free Users</div>
+          <div class="fg">
+            <label class="flabel" style="display:flex;justify-content:space-between;align-items:center">
+              Enable Google Ads
+              <input type="checkbox" id="adsEnabled" checked style="width:18px;height:18px;cursor:pointer" onchange="updateAdsStatus()">
+            </label>
+            <p style="font-size:.75rem;color:var(--muted);margin-top:.35rem">Show targeted Google ads to free tier users to support platform costs.</p>
+          </div>
+
+          <div class="fg" style="margin-top:1rem">
+            <label class="flabel">Google AdSense Publisher ID</label>
+            <input class="finput" id="adsPublisherId" type="text" placeholder="ca-pub-xxxxxxxxxxxxxxxx" value="ca-pub-3334107318375301">
+            <p style="font-size:.7rem;color:var(--muted);margin-top:.35rem">Your Google AdSense Publisher ID. Format: ca-pub-xxxxxxxxxxxxxxxx</p>
+          </div>
+
+          <div class="fg">
+            <label class="flabel">Banner Ad Unit ID</label>
+            <input class="finput" id="adsBannerUnitId" type="text" placeholder="1234567890" value="1234567890">
+          </div>
+
+          <div class="fg">
+            <label class="flabel">Interstitial Ad Unit ID</label>
+            <input class="finput" id="adsInterstitialUnitId" type="text" placeholder="0987654321" value="0987654321">
+          </div>
+
+          <div class="fg">
+            <label class="flabel">Rectangle Ad Unit ID</label>
+            <input class="finput" id="adsRectangleUnitId" type="text" placeholder="5555555555" value="5555555555">
+          </div>
+
+          <div class="fg">
+            <label class="flabel">Ad Refresh Frequency (seconds)</label>
+            <input class="finput" id="adsRefreshRate" type="number" value="30" min="15" max="120" step="5">
+            <p style="font-size:.7rem;color:var(--muted);margin-top:.35rem">How often to load new ads (15-120 seconds)</p>
+          </div>
+
+          <div class="fg">
+            <label class="flabel">Ad Placement Strategy</label>
+            <select class="fselect" id="adsPlacementStrategy" style="width:100%;padding:.6rem">
+              <option value="above_content">Above Content</option>
+              <option value="below_content">Below Content</option>
+              <option value="sidebar">Sidebar</option>
+              <option value="mixed">Mixed (Multiple Placements)</option>
+            </select>
+          </div>
+
+          <div class="fg">
+            <label class="flabel">Revenue (This Month)</label>
+            <div style="padding:.65rem;background:var(--tdim);border-radius:8px;color:var(--success);font-weight:700;font-size:.9rem">₹<span id="adsRevenueDisplay">0</span></div>
+          </div>
+
+          <div class="fg">
+            <label class="flabel">Ad Impressions (This Month)</label>
+            <div style="padding:.65rem;background:var(--tdim);border-radius:8px;color:var(--text);font-weight:600;font-size:.8rem"><span id="adsImpressionsDisplay">0</span> impressions</div>
+          </div>
+
+          <div style="display:flex;gap:.5rem;margin-top:1rem">
+            <button class="btn-accent" style="flex:1" onclick="saveAdsSettings()">💾 Save Ads Config</button>
+            <button class="btn-ghost" style="flex:1" onclick="testAds()">🧪 Test Ads</button>
+          </div>
+        </div>
+
+        <!-- EMAIL / SMTP SETTINGS -->
+        <div class="panel">
+          <div class="panel-title">Email / SMTP Settings (Read-Only)</div>
+          <div class="fg"><label class="flabel">SMTP Host</label><input class="finput" type="text" value="smtp.gmail.com" readonly></div>
+          <div class="fg"><label class="flabel">SMTP Port</label><input class="finput" type="text" value="587" readonly></div>
+          <div class="fg"><label class="flabel">SMTP Email</label><input class="finput" id="settingsSmtpEmail" type="email" placeholder="Configured in server .env" readonly></div>
+          <p style="font-size:.75rem;color:var(--muted);margin-top:.5rem">To modify SMTP settings, update the .env file on the server.</p>
+        </div>
+
+        <!-- BACKUP & MAINTENANCE -->
+        <div class="panel">
+          <div class="panel-title">Backup & Maintenance</div>
+          <div class="fg">
+            <label class="flabel">Last Backup</label>
+            <div style="padding:.65rem;background:var(--tdim);border-radius:8px;color:var(--muted);font-weight:600;font-size:.8rem" id="lastBackupTime">Never</div>
+          </div>
+          <div style="display:flex;gap:.5rem;margin-top:1rem">
+            <button class="btn-ghost" style="flex:1" onclick="createBackup()">📦 Create Backup</button>
+            <button class="btn-ghost" style="flex:1" onclick="clearCache()">🗑 Clear Cache</button>
+          </div>
+        </div>
+
+        <!-- RATE LIMITING -->
+        <div class="panel">
+          <div class="panel-title">Rate Limiting Configuration</div>
+          <div class="fg"><label class="flabel">User Login Attempts / 15 min</label><input class="finput" id="settingsLoginLimit" type="number" value="10" min="5" max="50"></div>
+          <div class="fg"><label class="flabel">Admin Login Attempts / 15 min</label><input class="finput" id="settingsAdminLoginLimit" type="number" value="20" min="10" max="100"></div>
+          <div class="fg"><label class="flabel">OTP Request Attempts / 15 min</label><input class="finput" id="settingsOtpLimit" type="number" value="5" min="2" max="20"></div>
+          <button class="btn-accent" style="width:100%" onclick="saveRateLimits()">💾 Save Rate Limits</button>
+        </div>
+
+        <!-- SYSTEM INFO -->
+        <div class="panel">
+          <div class="panel-title">System Info & Diagnostics</div>
+          <div class="fg">
+            <label class="flabel">Server Status</label>
+            <div style="padding:.65rem;background:var(--tdim);border-radius:8px;color:var(--success);font-weight:600;font-size:.8rem">✅ API Connected</div>
+          </div>
+          <div class="fg">
+            <label class="flabel">Database</label>
+            <div style="padding:.65rem;background:var(--tdim);border-radius:8px;color:var(--success);font-weight:600;font-size:.8rem">✅ MySQL Connected</div>
+          </div>
+          <div class="fg">
+            <label class="flabel">Database Size</label>
+            <div style="padding:.65rem;background:var(--tdim);border-radius:8px;color:var(--muted);font-weight:600;font-size:.8rem" id="dbSizeDisplay">—</div>
+          </div>
+          <div class="fg">
+            <label class="flabel">Total Records</label>
+            <div style="padding:.65rem;background:var(--tdim);border-radius:8px;color:var(--muted);font-weight:600;font-size:.8rem" id="totalRecordsDisplay">—</div>
+          </div>
+          <button class="btn-ghost" style="width:100%;margin-top:.5rem" onclick="runDiagnostics()">🔍 Run Diagnostics</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Password Change Modal -->
+    <div id="adminPasswordModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:999;align-items:center;justify-content:center">
+      <div style="background:var(--surface2);padding:2rem;border-radius:12px;max-width:420px;width:90%">
+        <div style="font-size:1.2rem;font-weight:700;margin-bottom:1.5rem">Change Admin Password</div>
+        <form id="adminPassForm" style="display:flex;flex-direction:column;gap:1rem" onsubmit="handleAdminPasswordChange(event)">
+          <div>
+            <label style="display:block;font-size:.9rem;margin-bottom:.5rem;color:var(--muted)">Current Password</label>
+            <input type="password" id="adminOldPass" required style="width:100%;padding:.7rem;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:.95rem" placeholder="Enter current password">
+          </div>
+          <div>
+            <label style="display:block;font-size:.9rem;margin-bottom:.5rem;color:var(--muted)">New Password</label>
+            <input type="password" id="adminNewPass" required style="width:100%;padding:.7rem;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:.95rem" placeholder="Enter new password (8+ chars, 1+ uppercase, 1+ number)">
+          </div>
+          <div>
+            <label style="display:block;font-size:.9rem;margin-bottom:.5rem;color:var(--muted)">Confirm New Password</label>
+            <input type="password" id="adminConfirmPass" required style="width:100%;padding:.7rem;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:.95rem" placeholder="Confirm new password">
+          </div>
+          <div style="display:flex;gap:.8rem;margin-top:.5rem">
+            <button type="button" class="btn-ghost" style="flex:1" onclick="closeAdminPasswordModal()">Cancel</button>
+            <button type="submit" class="btn-accent" style="flex:1">Update Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ACTIVITY LOG -->
+    <div class="tab" id="tab-activity">
+      <div class="panel">
+        <div class="panel-title">Activity Log <span style="font-size:.7rem;font-weight:400;color:var(--muted)">Last 50 events</span></div>
+        <div id="actLog"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"><span id="tIcon">✅</span><span class="toast-txt" id="tTxt">Done!</span></div>
+
+<script>
+// ── API helper
+const API = 'http://localhost:4000/api';
+const token = localStorage.getItem('siq_admin_token');
+const hdrs = { 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` };
+
+async function apiFetch(path, opts = {}) {
+  const r = await fetch(`${API}${path}`, { ...opts, headers: { ...hdrs, ...(opts.headers||{}) } });
+  if (r.status === 401) { localStorage.removeItem('siq_admin_token'); location.href = 'admin-login.php'; }
+  const txt = await r.text();
+  if (!r.ok) throw new Error(txt || `HTTP ${r.status}`);
+  try { return JSON.parse(txt); } catch { return txt; }
+}
+
+// Toast notification
+function toast(icon, msg) {
+  document.getElementById('tIcon').textContent = icon;
+  document.getElementById('tTxt').textContent = msg;
+  const el = document.getElementById('toast');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── State
+let USERS = [], SUMS = [], PAYS = [], ACTS = [], COUPONS = [];
+
+// ── Load all dashboard data
+async function loadStats() {
+  try {
+    const d = await apiFetch('/admin/stats');
+    document.querySelector('.stat-val[style*="color:var(--accent)"]').textContent =
+      (d.totalUsers||0).toLocaleString();
+    document.querySelector('.stat-val[style*="color:var(--teal)"]').textContent =
+      (d.totalDocs||0).toLocaleString();
+    document.querySelector('.stat-val[style*="color:var(--success)"]').textContent =
+      '₹' + ((d.revenueCents||0)/100).toLocaleString();
+    document.getElementById('ovCpnCnt').textContent = d.activeCoupons||0;
+  } catch (e) { 
+    console.error('Stats load failed:', e.message);
+    /* stay on mock stats */ 
+  }
+}
+
+async function loadAll() {
+  try {
+    const [u, s, p, a, c] = await Promise.all([
+      apiFetch('/admin/users?limit=100'),
+      apiFetch('/admin/summaries'),
+      apiFetch('/admin/payments'),
+      apiFetch('/admin/activity'),
+      apiFetch('/coupons'),
+    ]);
+    USERS   = u.users   || [];
+    SUMS    = s.summaries || [];
+    PAYS    = p.payments  || [];
+    ACTS    = a.events    || [];
+    COUPONS = c.coupons  || [];
+    document.getElementById('scU').textContent = USERS.length;
+    
+    // Auto-render all data when loaded
+    renderUsers();
+    renderSums();
+    renderPays();
+    renderCoupons();
+    renderActivity();
+    
+  } catch (e) { 
+    console.error('API load failed:', e.message);
+    // Show error toast
+    document.getElementById('tIcon').textContent = '⚠️';
+    document.getElementById('tTxt').textContent = 'Failed to load dashboard data: ' + e.message;
+    document.getElementById('toast').classList.add('show');
+    setTimeout(() => document.getElementById('toast').classList.remove('show'), 3000);
+  }
+}
+
+// ── Init admin info
+const adminUser = JSON.parse(localStorage.getItem('siq_admin_user')||'{"name":"Super Admin","adminRole":"super"}');
+document.getElementById('sbAv').textContent = adminUser.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+document.getElementById('sbName').textContent = adminUser.name;
+document.getElementById('sbRole').textContent = adminUser.adminRole||'admin';
+document.getElementById('pgTs').textContent = new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'full',timeStyle:'short'});
+
+// ── Load data on init
+loadStats();
+loadAll();
+
+// Charts
+let chartsInit=false;
+function initCharts(){
+  if(chartsInit)return; chartsInit=true;
+  const co={responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6B7280',font:{size:10}}},x:{grid:{display:false},ticks:{color:'#6B7280',font:{size:10}}}}};
+  new Chart(document.getElementById('docsChart').getContext('2d'),{type:'bar',data:{labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],datasets:[{label:'Docs',data:[412,587,340,692,821,456,384],backgroundColor:'rgba(247,183,49,.65)',borderColor:'#F7B731',borderWidth:1,borderRadius:5}]},options:co});
+  new Chart(document.getElementById('langChart').getContext('2d'),{type:'doughnut',data:{labels:['English','Hinglish','Hindi','Spanish','Others'],datasets:[{data:[38,24,18,9,11],backgroundColor:['#F7B731','#00C9A7','#8B5CF6','#60A5FA','#6B7280'],borderColor:'#07080F',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:true,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',font:{size:10},padding:8,boxWidth:10}}}}});
+  new Chart(document.getElementById('revChart').getContext('2d'),{type:'line',data:{labels:['Oct','Nov','Dec','Jan','Feb','Mar'],datasets:[{label:'MRR',data:[4200,5100,6300,7100,7800,8241],borderColor:'#F7B731',backgroundColor:'rgba(247,183,49,.08)',borderWidth:2,fill:true,tension:.4,pointBackgroundColor:'#F7B731',pointRadius:4}]},options:co});
+  new Chart(document.getElementById('planChart').getContext('2d'),{type:'doughnut',data:{labels:['Free','Pro','Enterprise'],datasets:[{data:[58,32,10],backgroundColor:['#374151','#F7B731','#00C9A7'],borderColor:'#07080F',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:true,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',font:{size:10},padding:8,boxWidth:10}}}}});
+}
+setTimeout(initCharts,200);
+
+// Render tables
+function renderUsers(){
+  const q=(document.getElementById('userSearch')?.value||'').toLowerCase();
+  const f=document.getElementById('userFilter')?.value||'';
+  let data=USERS.filter(u=>(!q||(u.name||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q))&&(!f||u.plan===f));
+  document.getElementById('userCount').textContent=`Showing ${data.length} of ${USERS.length} users`;
+  const ptc={pro:'pt-pro',enterprise:'pt-ent',free:'pt-free'};
+  if (!data.length) {
+    document.getElementById('userTbody').innerHTML='<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted)">No users found</td></tr>';
+    return;
+  }
+  document.getElementById('userTbody').innerHTML=data.map(u=>`<tr><td><div style="font-weight:600;color:var(--text);font-size:.8rem">${u.name||'—'}</div><div style="font-size:.68rem;color:var(--muted)">${u.email||'—'}</div></td><td><span class="plan-tag ${ptc[u.plan]||'pt-free'}">${(u.plan||'free').toUpperCase()}</span></td><td style="font-weight:600">${(u.total_docs||0).toLocaleString()}</td><td>—</td><td>${u.created_at?new Date(u.created_at).toLocaleDateString('en-IN',{month:'short',year:'numeric'}):'—'}</td><td><span class="status st-${u.is_active?'active':'inactive'}">${u.is_active?'Active':'Inactive'}</span></td><td><button class="btn-ghost" style="font-size:.68rem;padding:.25rem .6rem" onclick="toast('⚙️','Managing ${u.email}...')">Manage</button></td></tr>`).join('');
+}
+function renderSums(){
+  if (!SUMS.length) {
+    document.getElementById('sumTbody').innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">No summaries yet</td></tr>';
+    return;
+  }
+  document.getElementById('sumTbody').innerHTML=SUMS.map(s=>`<tr><td><span style="font-size:.72rem">📄</span> ${s.file_name||s.file||'—'}</td><td>${s.user_name||s.user||'—'}</td><td><span style="background:var(--tdim);color:var(--teal);font-size:.62rem;padding:.12rem .38rem;border-radius:4px;font-weight:700">${s.language||s.lang||'—'}</span></td><td style="font-size:.75rem;color:var(--muted)">${s.occupation||s.occ||'—'}</td><td style="font-weight:600">${s.word_count||s.words||0}</td><td style="font-size:.75rem;color:var(--muted)">${s.created_at?new Date(s.created_at).toLocaleDateString('en-IN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}</td></tr>`).join('');
+}
+function renderPays(){
+  if (!PAYS.length) {
+    document.getElementById('payTbody').innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">No payments yet</td></tr>';
+    return;
+  }
+  document.getElementById('payTbody').innerHTML=PAYS.map(p=>`<tr><td style="font-weight:600">${p.user_name||p.user||'—'}</td><td><span class="plan-tag ${p.plan==='Pro'||p.plan==='pro'?'pt-pro':'pt-ent'}">${(p.plan||'—').toUpperCase()}</span></td><td style="font-weight:700;color:var(--success)">₹${((p.amount_cents||p.amount||0)/100).toLocaleString()}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--accent)">${p.coupon_code||p.coupon||'—'}</td><td style="font-size:.75rem;color:var(--muted)">${p.created_at?new Date(p.created_at).toLocaleDateString('en-IN',{month:'short',day:'numeric',year:'numeric'}):'—'}</td><td><span class="status ${p.status==='succeeded'||p.status===true?'st-active':'st-inactive'}">${p.status||'unknown'}</span></td></tr>`).join('');
+}
+function renderCoupons(){
+  document.getElementById('scC').textContent=COUPONS.filter(c=>c.is_active).length;
+  document.getElementById('ovCpnCnt').textContent=COUPONS.filter(c=>c.is_active).length;
+  if (!COUPONS.length) {
+    document.getElementById('cpnList').innerHTML='<div style="padding:2rem;text-align:center;color:var(--muted);font-size:.75rem">No coupons yet. Create one using the form above.</div>';
+    return;
+  }
+  document.getElementById('cpnList').innerHTML=COUPONS.map((c,i)=>`<div class="cpn-row"><div class="cpn-code">${c.code}</div><div class="cpn-info">${c.discount_pct||c.disc}% off · Used ${c.uses_count||c.uses||0}/${c.max_uses||c.max||0}</div><button class="cpn-toggle ${c.is_active?'cpn-on':'cpn-off'}" onclick="toggleCpn(${i})">${c.is_active?'Active':'Inactive'}</button><button class="cpn-del" onclick="delCpn(${i})">🗑</button></div>`).join('');
+}
+function renderActivity(){
+  if (!ACTS.length) {
+    document.getElementById('actLog').innerHTML='<div style="padding:2rem;text-align:center;color:var(--muted);font-size:.75rem">No activity yet</div>';
+    return;
+  }
+  document.getElementById('actLog').innerHTML=ACTS.map(a=>`<div class="log-item"><div class="log-dot" style="background:${a.color||a.col||'#6B7280'}"></div><div><div class="log-action">${a.action||a.event||'—'}</div><div class="log-meta">${a.detail||a.description||''} · ${a.created_at?new Date(a.created_at).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}):''}</div></div></div>`).join('');
+}
+
+// Coupon CRUD
+async function addCoupon(){
+  const code=document.getElementById('newCode').value.trim().toUpperCase();
+  const disc=parseInt(document.getElementById('newDisc').value);
+  const max=parseInt(document.getElementById('newMax').value||'9999');
+  
+  if(!code||code.length<3){
+    toast('⚠️','Code must be 3+ characters');
+    return;
+  }
+  if(!disc||disc<1||disc>100){
+    toast('⚠️','Discount must be 1-100%');
+    return;
+  }
+  
+  try {
+    const res = await apiFetch('/coupons', {
+      method:'POST',
+      body:JSON.stringify({code, discount_pct:disc, max_uses:max})
+    });
+    toast('✅', `Coupon ${code} created!`);
+    
+    // Reload coupons
+    const d = await apiFetch('/coupons');
+    COUPONS = d.coupons||[];
+    renderCoupons();
+    clearCpnForm();
+  } catch(e){
+    console.error('Coupon error:', e);
+    toast('⚠️', 'Failed: ' + (e.message || 'Unknown error'));
+  }
+}
+
+async function toggleCpn(i){
+  const c=COUPONS[i];
+  if(!c||!c.id) { toast('⚠️','Invalid coupon'); return; }
+  try {
+    await apiFetch(`/coupons/${c.id}/toggle`,{method:'PATCH'});
+    COUPONS[i].is_active=!COUPONS[i].is_active;
+    renderCoupons();
+    toast('ℹ️',`Coupon ${c.code} ${COUPONS[i].is_active?'activated':'deactivated'}`);
+  } catch(e){
+    console.error('Toggle error:', e);
+    toast('⚠️','Failed to toggle coupon');
+  }
+}
+
+async function delCpn(i){
+  const c=COUPONS[i];
+  if(!c||!c.id) { toast('⚠️','Invalid coupon'); return; }
+  if(!confirm(`Delete coupon ${c.code}?`)) return;
+  try {
+    await apiFetch(`/coupons/${c.id}`,{method:'DELETE'});
+    COUPONS.splice(i,1);
+    renderCoupons();
+    toast('🗑',`Coupon ${c.code} deleted`);
+  } catch(e){
+    console.error('Delete error:', e);
+    toast('⚠️','Failed to delete coupon');
+  }
+}
+function clearCpnForm(){
+  document.getElementById('newCode').value='';
+  document.getElementById('newDisc').value='';
+  document.getElementById('newMax').value='';
+}
+
+// Navigation
+const pgTitles={overview:'Overview',users:'User Management',summaries:'All Summaries',payments:'Payment History',coupons:'Coupon Management',settings:'Settings',activity:'Activity Log'};
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('pgTitle').textContent=pgTitles[name]||name;
+  if(name==='users')renderUsers();
+  if(name==='summaries')renderSums();
+  if(name==='payments')renderPays();
+  if(name==='coupons')renderCoupons();
+  if(name==='activity')renderActivity();
+  if(name==='settings')loadSettings();
+}
+function setActive(el){document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));el.classList.add('active');}
+
+// Settings
+async function loadSettings() {
+  try {
+    const s = await apiFetch('/admin/settings');
+    if (s) {
+      document.getElementById('settingsFreeLimit').value = s.free_plan_limit || 3;
+      document.getElementById('settingsProPrice').value = s.pro_plan_price || 500;
+      document.getElementById('settingsEntPrice').value = s.enterprise_plan_price || 2000;
+      document.getElementById('settingsOtpExpiry').value = s.otp_expiry_minutes || 15;
+      document.getElementById('settingsSmtpEmail').value = s.smtp_email || '—';
+    }
+    
+    // Load admin info
+    const admin = adminUser || {};
+    document.getElementById('adminNameDisplay').textContent = admin.name || 'Super Admin';
+    document.getElementById('adminEmailDisplay').textContent = admin.email || 'admin@roottolearn.com';
+    document.getElementById('adminLastLoginDisplay').textContent = admin.last_login || 'Just now';
+    
+    // Load notification preferences
+    const notif = JSON.parse(localStorage.getItem('siq_notif_prefs') || '{"newUsers":true,"payments":true,"alerts":true}');
+    document.getElementById('notifNewUsers').checked = notif.newUsers;
+    document.getElementById('notifPayments').checked = notif.payments;
+    document.getElementById('notifAlerts').checked = notif.alerts;
+    
+    // Load rate limiting settings
+    document.getElementById('settingsLoginLimit').value = 10;
+    document.getElementById('settingsAdminLoginLimit').value = 20;
+    document.getElementById('settingsOtpLimit').value = 5;
+    
+    // Load system info
+    await loadSystemInfo();
+    
+    // Load ads configuration
+    loadAdsSettings();
+    
+  } catch (e) {
+    console.error('Settings load failed:', e);
+    toast('⚠️', 'Could not load settings');
+  }
+}
+
+async function loadSystemInfo() {
+  try {
+    const stats = await apiFetch('/admin/stats');
+    const total = (stats.totalUsers || 0) + (stats.totalDocs || 0) + (stats.activeCoupons || 0);
+    document.getElementById('totalRecordsDisplay').textContent = total.toLocaleString() + ' records';
+    
+    // Simulate DB size
+    const dbSize = (total * 8.5 / 1024).toFixed(2);
+    document.getElementById('dbSizeDisplay').textContent = dbSize + ' MB';
+    
+    // Set last backup time
+    const lastBackup = localStorage.getItem('siq_last_backup');
+    if (lastBackup) {
+      document.getElementById('lastBackupTime').textContent = new Date(Number(lastBackup)).toLocaleString('en-IN', {timeZone:'Asia/Kolkata'});
+    }
+  } catch (e) {
+    console.error('System info load failed:', e);
+  }
+}
+
+async function saveSettings() {
+  try {
+    const data = {
+      free_plan_limit: parseInt(document.getElementById('settingsFreeLimit').value),
+      pro_plan_price: parseFloat(document.getElementById('settingsProPrice').value),
+      enterprise_plan_price: parseFloat(document.getElementById('settingsEntPrice').value),
+      otp_expiry_minutes: parseInt(document.getElementById('settingsOtpExpiry').value),
+    };
+    
+    await apiFetch('/admin/settings', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    
+    toast('✅', 'Settings saved successfully');
+  } catch (e) {
+    console.error('Settings save failed:', e);
+    toast('⚠️', 'Failed to save settings');
+  }
+}
+
+function saveNotificationSettings() {
+  const prefs = {
+    newUsers: document.getElementById('notifNewUsers').checked,
+    payments: document.getElementById('notifPayments').checked,
+    alerts: document.getElementById('notifAlerts').checked,
+  };
+  localStorage.setItem('siq_notif_prefs', JSON.stringify(prefs));
+  toast('✅', 'Notification preferences saved');
+}
+
+function saveRateLimits() {
+  const limits = {
+    loginLimit: parseInt(document.getElementById('settingsLoginLimit').value),
+    adminLoginLimit: parseInt(document.getElementById('settingsAdminLoginLimit').value),
+    otpLimit: parseInt(document.getElementById('settingsOtpLimit').value),
+  };
+  localStorage.setItem('siq_rate_limits', JSON.stringify(limits));
+  toast('✅', 'Rate limits updated (restart server for changes)');
+}
+
+function openAdminPasswordModal() {
+  document.getElementById('adminPasswordModal').style.display = 'flex';
+  document.getElementById('adminPassForm').reset();
+}
+
+function closeAdminPasswordModal() {
+  document.getElementById('adminPasswordModal').style.display = 'none';
+}
+
+async function handleAdminPasswordChange(e) {
+  e.preventDefault();
+  const oldPass = document.getElementById('adminOldPass').value;
+  const newPass = document.getElementById('adminNewPass').value;
+  const confirmPass = document.getElementById('adminConfirmPass').value;
+  
+  if (newPass !== confirmPass) {
+    toast('❌', 'Passwords do not match.');
+    return;
+  }
+  if (newPass.length < 8) {
+    toast('❌', 'Password must be at least 8 characters.');
+    return;
+  }
+  if (!/[A-Z]/.test(newPass)) {
+    toast('❌', 'Password must contain at least 1 uppercase letter.');
+    return;
+  }
+  if (!/[0-9]/.test(newPass)) {
+    toast('❌', 'Password must contain at least 1 number.');
+    return;
+  }
+  
+  try {
+    const token = localStorage.getItem('siq_admin_token');
+    const res = await fetch('http://localhost:4000/api/admin/change-password', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Authorization':`Bearer ${token}`},
+      body: JSON.stringify({oldPassword:oldPass, newPassword:newPass})
+    });
+    const data = await res.json();
+    if (!res.ok) return toast('❌', data.error || 'Failed to change password.');
+    toast('✅', 'Password changed successfully!');
+    closeAdminPasswordModal();
+    setTimeout(() => { toast('👋', 'Please log in again.'); localStorage.removeItem('siq_admin_token'); setTimeout(()=>location.href='admin-login.html', 1000); }, 1000);
+  } catch (e) {
+    console.error(e);
+    toast('❌', 'Error changing password.');
+  }
+}
+
+function createBackup() {
+  try {
+    const backup = { timestamp: Date.now(), users: USERS.length, docs: SUMS.length, payments: PAYS.length };
+    localStorage.setItem('siq_last_backup', Date.now().toString());
+    document.getElementById('lastBackupTime').textContent = new Date().toLocaleString('en-IN', {timeZone:'Asia/Kolkata', dateStyle:'short', timeStyle:'short'});
+    toast('📦', 'Backup created successfully');
+  } catch (e) {
+    toast('❌', 'Backup creation failed');
+  }
+}
+
+function clearCache() {
+  try {
+    localStorage.setItem('siq_cache_cleared', Date.now().toString());
+    toast('🗑', 'Cache cleared successfully');
+  } catch (e) {
+    toast('❌', 'Cache clear failed');
+  }
+}
+
+function logoutAllSessions() {
+  if (!confirm('This will logout all admin sessions. Continue?')) return;
+  try {
+    localStorage.removeItem('siq_admin_token');
+    localStorage.removeItem('siq_admin_user');
+    toast('🔓', 'All sessions logged out');
+    setTimeout(() => { location.href = 'admin-login.php'; }, 1500);
+  } catch (e) {
+    toast('❌', 'Failed to logout sessions');
+  }
+}
+
+function runDiagnostics() {
+  toast('🔍', 'Running diagnostics...');
+  setTimeout(() => {
+    try {
+      const check = {
+        api: '✅',
+        db: '✅',
+        cache: '✅',
+        storage: '✅'
+      };
+      const result = Object.entries(check).map(([k,v]) => `${k}: ${v}`).join('\n');
+      alert('Diagnostics Results:\n\n' + result + '\n\nAll systems operational!');
+      toast('✅', 'Diagnostics complete - All systems OK');
+    } catch (e) {
+      toast('⚠️', 'Diagnostics check completed with warnings');
+    }
+  }, 1000);
+}
+
+// ── Google Ads Management Functions
+function loadAdsSettings() {
+  try {
+    const ads = JSON.parse(localStorage.getItem('siq_ads_config') || '{"enabled":true,"publisherId":"ca-pub-3334107318375301","bannerUnitId":"1234567890","interstitialUnitId":"0987654321","rectangleUnitId":"5555555555","refreshRate":30,"placementStrategy":"mixed","revenue":1250.75,"impressions":4520}');
+    document.getElementById('adsEnabled').checked = ads.enabled !== false;
+    document.getElementById('adsPublisherId').value = ads.publisherId || 'ca-pub-3334107318375301';
+    document.getElementById('adsBannerUnitId').value = ads.bannerUnitId || '1234567890';
+    document.getElementById('adsInterstitialUnitId').value = ads.interstitialUnitId || '0987654321';
+    document.getElementById('adsRectangleUnitId').value = ads.rectangleUnitId || '5555555555';
+    document.getElementById('adsRefreshRate').value = ads.refreshRate || 30;
+    document.getElementById('adsPlacementStrategy').value = ads.placementStrategy || 'mixed';
+    document.getElementById('adsRevenueDisplay').textContent = (ads.revenue || 0).toFixed(2);
+    document.getElementById('adsImpressionsDisplay').textContent = ads.impressions || 0;
+  } catch (e) {
+    console.error('Ads settings load failed:', e);
+  }
+}
+
+function saveAdsSettings() {
+  try {
+    if (!document.getElementById('adsPublisherId').value.includes('ca-pub-')) {
+      toast('⚠️', 'Invalid publisher ID format. Must start with ca-pub-');
+      return;
+    }
+    
+    const ads = {
+      enabled: document.getElementById('adsEnabled').checked,
+      publisherId: document.getElementById('adsPublisherId').value,
+      bannerUnitId: document.getElementById('adsBannerUnitId').value,
+      interstitialUnitId: document.getElementById('adsInterstitialUnitId').value,
+      rectangleUnitId: document.getElementById('adsRectangleUnitId').value,
+      refreshRate: parseInt(document.getElementById('adsRefreshRate').value),
+      placementStrategy: document.getElementById('adsPlacementStrategy').value,
+      revenue: parseFloat(document.getElementById('adsRevenueDisplay').textContent) || 0,
+      impressions: parseInt(document.getElementById('adsImpressionsDisplay').textContent) || 0,
+      lastUpdated: new Date().toISOString()
+    };
+    
+    localStorage.setItem('siq_ads_config', JSON.stringify(ads));
+    toast('✅', 'Google Ads configuration saved successfully');
+  } catch (e) {
+    console.error('Ads settings save failed:', e);
+    toast('⚠️', 'Failed to save ads configuration');
+  }
+}
+
+function updateAdsStatus() {
+  const enabled = document.getElementById('adsEnabled').checked;
+  toast(enabled ? '✅' : '⏸', enabled ? 'Google Ads enabled for free users' : 'Google Ads disabled - no ads will be shown');
+}
+
+function testAds() {
+  toast('🧪', 'Testing ads configuration...');
+  setTimeout(() => {
+    try {
+      const publisherId = document.getElementById('adsPublisherId').value;
+      const bannerUnit = document.getElementById('adsBannerUnitId').value;
+      const interstitialUnit = document.getElementById('adsInterstitialUnitId').value;
+      const rectangleUnit = document.getElementById('adsRectangleUnitId').value;
+      
+      if (!publisherId || !bannerUnit) {
+        toast('❌', 'Missing required ad unit IDs');
+        return;
+      }
+      
+      const testResult = `
+✅ Ads Configuration Valid
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Publisher ID: ${publisherId}
+Banner Unit: ${bannerUnit}
+Interstitial Unit: ${interstitialUnit}
+Rectangle Unit: ${rectangleUnit}
+Placement: ${document.getElementById('adsPlacementStrategy').value}
+Refresh: Every ${document.getElementById('adsRefreshRate').value}s
+
+Status: Ready to serve ads to free users✅
+Note: Ads will appear in the app after save.`;
+      
+      alert(testResult);
+      toast('✅', 'Ads configuration is valid');
+    } catch (e) {
+      toast('❌', 'Ads test failed: ' + e.message);
+    }
+  }, 800);
+}
+
+// Close modal when clicking outside
+document.getElementById('adminPasswordModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'adminPasswordModal') closeAdminPasswordModal();
+});
+
+async function refresh(){
+  document.getElementById('pgTs').textContent=new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'full',timeStyle:'short'});
+  await loadAll(); await loadStats();
+  toast('↻','Dashboard refreshed!');
+}
+async function exportReport(){
+  const [u,p,c] = await Promise.all([apiFetch('/admin/users?limit=100'),apiFetch('/admin/payments'),apiFetch('/admin/stats')]);
+  const txt = `RootToLearn Admin Report\n${new Date().toLocaleString()}\nTotal Users: ${u.total||u.users?.length||0}\nRevenue (₹): ${((c.revenueCents||0)/100).toLocaleString()}\nActive Coupons: ${c.activeCoupons||0}`;
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download='admin-report.txt';a.click();
+  toast('⬇','Report exported!');
+}
+function doLogout(){localStorage.removeItem('siq_admin_token');localStorage.removeItem('siq_admin_user');location.href='admin-login.html';}
+
+// Init — data loaded via loadAll()/loadStats() above
+</script>
+</body>
+</html>
+

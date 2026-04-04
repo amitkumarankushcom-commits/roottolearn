@@ -1,0 +1,160 @@
+<?
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23F7B731'/%3E%3Ctext y='24' x='5' font-size='21' font-weight='900' font-family='Arial' fill='%23000'%3ER%3C/text%3E%3C/svg%3E"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RootToLearn</title>
+<link rel="stylesheet" href="../assets/css/main.css">
+<link rel="stylesheet" href="../assets/css/pricing.css">
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-logo" onclick="location.href='index.html'"><div class="li">R</div>Root<span>To</span><span>Learn</span></div>
+  <div class="nav-links">
+    <button class="nl" onclick="location.href='index.html'">Home</button>
+    <button class="nl" onclick="location.href='app.html'">App</button>
+    <button class="nl active">Pricing</button>
+  </div>
+  <div class="nav-right" id="navRight">
+    <button class="btn-ghost" onclick="location.href='login.html'">Sign In</button>
+    <button class="btn-accent" onclick="location.href='signup.html'">Get Started</button>
+  </div>
+</nav>
+<div style="padding-top:60px">
+<div class="pricing-wrap">
+  <div style="text-align:center;margin-bottom:2.5rem">
+    <div style="font-size:.72rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.6rem;font-family:'Syne',sans-serif">Pricing</div>
+    <h1 style="font-size:2.2rem;font-weight:800;margin-bottom:.6rem;letter-spacing:-.03em">Choose Your Plan</h1>
+    <p style="color:var(--muted);max-width:420px;margin:0 auto">Start free. Upgrade when ready. Cancel anytime.</p>
+  </div>
+  <div class="coupon-box">
+    <h3>🎟 Have a Coupon?</h3>
+    <p>Enter your discount code for a special price</p>
+    <div class="crow">
+      <input class="cinput" id="cpnIn" type="text" placeholder="e.g. SAVE20">
+      <button class="btn-apply" onclick="applyCpn()">Apply</button>
+    </div>
+    <div class="cmsg" id="cpnMsg"></div>
+    <div style="margin-top:.5rem;font-size:.72rem;color:var(--muted)">Try: SAVE20 · LAUNCH50 · STUDENT30 · FREEMONTH</div>
+  </div>
+  <div class="price-grid">
+    <div class="plan">
+      <div class="plan-name">Free</div>
+      <div class="plan-price">₹0<span>/mo</span></div>
+      <div class="plan-desc">Try SummarIQ</div>
+      <ul class="plan-feats"><li>3 documents/month</li><li>PDF & PPT</li><li>English only</li><li class="no">Audio files</li><li class="no">All languages</li><li class="no">Ad-free</li></ul>
+      <button class="btn-plan btn-po" onclick="location.href='signup.html'">Start Free</button>
+    </div>
+    <div class="plan pop">
+      <div class="plan-name">Pro</div>
+      <div class="plan-price" id="pprice">₹849<span>/mo</span></div>
+      <div class="plan-desc">Unlimited document intelligence</div>
+      <ul class="plan-feats"><li>Unlimited documents</li><li>PDF, PPT & Audio</li><li>All 20+ languages</li><li>All occupation modes</li><li>Ad-free experience</li><li>Priority AI processing</li></ul>
+      <button class="btn-plan btn-pp" onclick="openPay('pro',849)">Get Pro</button>
+    </div>
+    <div class="plan">
+      <div class="plan-name">Enterprise</div>
+      <div class="plan-price" id="eprice">₹2499<span>/mo</span></div>
+      <div class="plan-desc">For teams & organizations</div>
+      <ul class="plan-feats"><li>Everything in Pro</li><li>REST API access</li><li>Team workspace</li><li>SSO & audit logs</li><li>Dedicated support</li><li>SLA guarantee</li></ul>
+      <button class="btn-plan btn-po" onclick="openPay('enterprise',2499)">Get Enterprise</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- Payment Modal -->
+<div class="overlay" id="payOv">
+  <div class="modal">
+    <div class="modal-h"><div class="modal-title">Complete Purchase</div><button class="mcls" onclick="closePay()">×</button></div>
+    <div class="order-sum" id="orderSum"></div>
+    <div class="fg">
+      <label class="flabel">Promo Code</label>
+      <div class="crow"><input class="cinput" type="text" id="payCpn" placeholder="Optional code"><button class="btn-apply" onclick="applyPayCpn()">Apply</button></div>
+      <div class="cmsg" id="payCpnMsg"></div>
+    </div>
+    <div style="background:rgba(247,183,49,.08);border:1px solid rgba(247,183,49,.2);border-radius:10px;padding:12px 14px;font-size:.8rem;color:var(--muted);margin-bottom:1rem">
+      Pay using GPay, PhonePe, Paytm, BHIM, or any UPI app.
+    </div>
+    <div class="fg"><label class="flabel">UPI ID <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+      <input class="finput" id="upiId" type="text" placeholder="yourname@upi">
+    </div>
+    <button class="pay-btn" id="upiPayBtn" onclick="processUpiPay()">📱 Pay via UPI</button>
+    <div class="pay-sec">🔐 Secured by Razorpay — PCI DSS Compliant</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="tIcon">✅</span><span class="toast-txt" id="tTxt">Done!</span></div>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="../assets/js/api.js?v=2"></script>
+<script>
+const RAZORPAY_KEY='rzp_test_SYgxg67CSCdmMD'; // public key — safe in frontend
+const COUPONS={SAVE20:20,LAUNCH50:50,STUDENT30:30,FREEMONTH:100,WELCOME15:15};
+const PRICES={pro:849,enterprise:2499};
+let discount=0,curPay={plan:'pro',price:849};
+const u=getUser();
+if(u){const init=u.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);document.getElementById('navRight').innerHTML=`<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av" onclick="location.href='profile.html'">${init}</div>`;}
+function applyCpn(){
+  const c=document.getElementById('cpnIn').value.trim().toUpperCase();
+  const msg=document.getElementById('cpnMsg');
+  if(COUPONS[c]){discount=COUPONS[c];msg.textContent=`🎉 ${COUPONS[c]}% off!`;msg.className='cmsg ok';updatePrices();toast('🎟',`Coupon ${c} applied!`);}
+  else{msg.textContent='❌ Invalid code';msg.className='cmsg err';}
+}
+function updatePrices(){
+  const d=discount/100;
+  document.getElementById('pprice').innerHTML=discount>0?`₹${Math.round(849*(1-d))}<span>/mo</span> <span style="text-decoration:line-through;font-size:.9rem;color:var(--muted)">₹849</span>`:`₹849<span>/mo</span>`;
+  document.getElementById('eprice').innerHTML=discount>0?`₹${Math.round(2499*(1-d))}<span>/mo</span> <span style="text-decoration:line-through;font-size:.9rem;color:var(--muted)">₹2499</span>`:`₹2499<span>/mo</span>`;
+}
+function openPay(plan,price){curPay={plan,price};renderOrder();document.getElementById('payOv').classList.add('show');}
+function closePay(){document.getElementById('payOv').classList.remove('show');}
+function renderOrder(){
+  const orig=curPay.price,d=discount,total=Math.round(orig*(1-d/100));
+  const discRow=d>0?`<div class="or disc"><span class="lbl">Discount (${d}%)</span><span class="val">−₹${orig-total}</span></div>`:'';
+  document.getElementById('orderSum').innerHTML=`<div class="or"><span class="lbl">${curPay.plan.charAt(0).toUpperCase()+curPay.plan.slice(1)} Plan</span><span class="val">₹${orig}/mo</span></div>${discRow}<div class="or total"><span class="lbl">Total</span><span class="val">₹${total}/mo</span></div>`;
+}
+function applyPayCpn(){const c=document.getElementById('payCpn').value.trim().toUpperCase();const msg=document.getElementById('payCpnMsg');if(COUPONS[c]){discount=COUPONS[c];renderOrder();msg.textContent=`✓ ${COUPONS[c]}% off`;msg.className='cmsg ok';}else{msg.textContent='Invalid code';msg.className='cmsg err';}}
+async function processUpiPay(){
+  const btn=document.getElementById('upiPayBtn');
+  btn.textContent='⏳ Loading…'; btn.disabled=true;
+  const upiId=document.getElementById('upiId').value.trim();
+  const cpn=document.getElementById('payCpn').value.trim();
+  const total=Math.round(curPay.price*(1-discount/100));
+
+  // Try backend order (needed for plan activation after payment)
+  let orderId=null, key=RAZORPAY_KEY;
+  if(isLoggedIn()){
+    try{
+      const r=await payments.createOrder(curPay.plan,cpn);
+      const d=await r.json();
+      if(r.ok){orderId=d.orderId; key=d.key;}
+    }catch(e){}
+  }
+
+  const options={
+    key, amount:total*100, currency:'INR',
+    name:'SummarIQ', description:curPay.plan.charAt(0).toUpperCase()+curPay.plan.slice(1)+' Plan',
+    prefill:{email:u?.email||'', contact:'', vpa:upiId||undefined},
+    theme:{color:'#F7B731'},
+    handler:async function(response){
+      closePay();
+      if(orderId&&isLoggedIn()){
+        try{
+          const vr=await payments.verifyUpi({...response,razorpay_order_id:orderId});
+          const vd=await vr.json();
+          if(vd.success){toast('🎉',curPay.plan+' plan activated!');setTimeout(()=>location.href='app.html',1500);return;}
+        }catch(e){}
+      }
+      toast('🎉','Payment done! Sign in to activate your plan.');
+      setTimeout(()=>location.href='login.html',2000);
+    },
+    modal:{ondismiss:()=>{btn.textContent='📱 Pay via UPI';btn.disabled=false;}}
+  };
+  if(orderId) options.order_id=orderId;
+  try{ new Razorpay(options).open(); }
+  catch(e){ toast('❌','Could not open payment. Check console.'); btn.textContent='📱 Pay via UPI'; btn.disabled=false; }
+}
+</script>
+</body>
+</html>
+
