@@ -29,7 +29,7 @@ if (process.env.DATABASE_URL && process.env.DATABASE_URL !== '') {
     .catch(err  => { 
       console.error('[DB] ✗ Supabase connection failed:', err.message);
       console.error('[DB] Check your DATABASE_URL in .env');
-      process.exit(1);
+      
     });
 
 } else {
