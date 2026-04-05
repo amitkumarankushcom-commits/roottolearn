@@ -19,38 +19,20 @@ app.use(helmet({ contentSecurityPolicy: false }));
 
 // ── CORS Configuration
 const allowedOrigins = [
-  'https://roottolearn999.netlify.app',
   'http://localhost:3000',
-  'http://localhost:5173',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:5173',
+  'https://roottolearn999.netlify.app'
 ];
 
-// Also add from env if provided
-if (process.env.CORS_ORIGINS) {
-  const envOrigins = process.env.CORS_ORIGINS.split(',').map(s => s.trim());
-  allowedOrigins.push(...envOrigins);
-}
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or Postman)
+app.use(cors({
+  origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.warn(`[CORS] Blocked request from origin: ${origin}`);
-      callback(new Error('CORS Not Allowed'));
+      callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-};
-
-app.use(cors(corsOptions));
-
-// ── Preflight requests
-app.options('*', cors(corsOptions));
+  credentials: true
+}));
 
 
 // ── Body parsers & compression (BEFORE routes)
