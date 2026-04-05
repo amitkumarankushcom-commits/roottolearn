@@ -18,21 +18,15 @@ app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // ── CORS Configuration
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://roottolearn999.netlify.app'
-];
+const cors = require('cors');
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: "https://roottolearn999.netlify.app",
+  methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
+
+app.options('*', cors());
 
 
 // ── Body parsers & compression (BEFORE routes)
