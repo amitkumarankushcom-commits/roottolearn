@@ -33,7 +33,10 @@ app.use(cors({
   credentials: true
 }));
 
-app.options('*', cors());
+app.options('*', cors({
+  origin: corsOriginsList,
+  credentials: true
+}));
 
 // ── Body parsers & compression
 app.use(compression());
