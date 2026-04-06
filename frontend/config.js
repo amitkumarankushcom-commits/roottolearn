@@ -44,7 +44,7 @@ window.APP_CONFIG = {
  */
 async function loadEnvConfig() {
   try {
-    const response = await fetch('.env');
+    return; // Disable .env loading for now (uncomment to enable)
     
     if (!response.ok) {
       if (window.APP_CONFIG.debug) {
