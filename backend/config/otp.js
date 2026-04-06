@@ -1,147 +1,182 @@
-// backend/config/otp.js — OTP generation, storage & email delivery
-const crypto = require('crypto');
-const db = require('./supabase');
+// ============================================================
+// OTP SYSTEM (Supabase + Email)
+// ============================================================
 
-// ── Hash OTP for storage (constant-time comparison via SHA-256)
+const crypto = require('crypto');
+const supabase = require('./supabase');
+const nodemailer = require('nodemailer');
+
+// ── Hash OTP
 function hashOTP(token) {
     return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-// ── Generate 6-digit OTP (crypto-secure)
+// ── Generate 6-digit OTP
 function generateOTP() {
     const bytes = crypto.randomBytes(6);
     return Array.from(bytes).map(b => b % 10).join('');
 }
 
-// ── Save OTP hash to DB
+// ============================================================
+// CREATE OTP (Supabase)
+// ============================================================
+
 async function createOTP(email, purpose) {
     const token = generateOTP();
     const hash = hashOTP(token);
+
     const expiryMin = Number(process.env.OTP_EXPIRY_MINUTES) || 15;
     const expiresAt = new Date(Date.now() + expiryMin * 60 * 1000);
 
-    // Invalidate previous unused OTPs atomically
-    await db.execute(
-        `UPDATE otp_tokens SET used=1 WHERE target=? AND purpose=? AND used=0`,
-        [email, purpose]
-    );
+    // Delete old OTPs
+    await supabase
+        .from('otp_tokens')
+        .delete()
+        .eq('target', email)
+        .eq('purpose', purpose);
 
-    await db.execute(
-        `INSERT INTO otp_tokens (target,token,purpose,expires_at) VALUES (?,?,?,?)`,
-        [email, hash, purpose, expiresAt]
-    );
+    // Insert new OTP
+    const { error } = await supabase
+        .from('otp_tokens')
+        .insert([{
+            target: email,
+            token: hash,
+            purpose,
+            expires_at: expiresAt,
+            attempts: 0,
+            used: false
+        }]);
 
-    return token; // returns plaintext — only to send via email
+    if (error) {
+        console.error("❌ OTP Insert Error:", error.message);
+        throw error;
+    }
+
+    console.log("✅ OTP created for:", email);
+
+    return token;
 }
 
-// ── Verify OTP (atomic consume via UPDATE ... WHERE)
+// ============================================================
+// VERIFY OTP
+// ============================================================
+
 async function verifyOTP(email, token, purpose, consume = true) {
     const hash = hashOTP(token);
-    const maxAtt = Number(process.env.OTP_MAX_ATTEMPTS) || 5;
 
-    // First check if any valid OTP exists
-    const [rows] = await db.execute(
-        `SELECT id,attempts,expires_at,token FROM otp_tokens WHERE target=? AND purpose=? AND used=0 ORDER BY created_at DESC LIMIT 1`,
-        [email, purpose]
-    );
+    const { data, error } = await supabase
+        .from('otp_tokens')
+        .select('*')
+        .eq('target', email)
+        .eq('purpose', purpose)
+        .eq('used', false)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-    if (!rows.length) {
+    if (error || !data.length) {
         return { ok: false, error: 'OTP not found. Request a new one.' };
     }
 
-    const row = rows[0];
+    const row = data[0];
 
-    // Check expiry
+    // Expiry check
     if (new Date(row.expires_at).getTime() < Date.now()) {
         return { ok: false, error: 'OTP expired. Request a new one.' };
     }
 
-    // Check attempt limit
-    if (row.attempts >= maxAtt) {
-        return { ok: false, error: 'Too many attempts. Request a new OTP.' };
-    }
-
-    // Token match check (constant-time comparison)
+    // Wrong OTP
     if (row.token !== hash) {
-        await db.execute(
-            `UPDATE otp_tokens SET attempts=attempts+1 WHERE id=? AND used=0`,
-            [row.id]
-        );
-        return { ok: false, error: 'Invalid OTP. Please try again.' };
+        await supabase
+            .from('otp_tokens')
+            .update({ attempts: row.attempts + 1 })
+            .eq('id', row.id);
+
+        return { ok: false, error: 'Invalid OTP.' };
     }
 
-    // Token match — consume atomically via UPDATE WHERE
+    // Mark used
     if (consume) {
-        const [result] = await db.execute(
-            `UPDATE otp_tokens SET used=1 WHERE id=? AND used=0`,
-            [row.id]
-        );
-        // If no row was updated, it was already consumed (race condition guard)
-        if (result.affectedRows === 0) {
-            return { ok: false, error: 'OTP already used. Request a new one.' };
-        }
-        return { ok: true };
+        await supabase
+            .from('otp_tokens')
+            .update({ used: true })
+            .eq('id', row.id);
     }
 
-    // For non-consumable verification (e.g., forgot password step 1)
-    const [result] = await db.execute(
-        `UPDATE otp_tokens SET attempts=attempts+1 WHERE id=? AND used=0`,
-        [row.id]
-    );
-    if (result.affectedRows === 0) {
-        return { ok: false, error: 'OTP already used. Request a new one.' };
-    }
     return { ok: true };
 }
 
-// ── HTML email template
+// ============================================================
+// EMAIL TEMPLATE
+// ============================================================
+
 function emailHTML(otp, purpose) {
-    const titles = { signup: 'Verify Your Email', login: 'Your Login Code', admin: 'Admin 2FA Code', forgot: 'Reset Password' };
-    return `<!DOCTYPE html><html><body style="margin:0;background:#07080F;font-family:Arial,sans-serif">
-<div style="max-width:460px;margin:40px auto;background:#131520;border-radius:16px;overflow:hidden;border:1px solid #252836">
-<div style="background:#F7B731;padding:20px 28px"><strong style="color:#000;font-size:20px;font-weight:900">RootToLearn</strong></div>
-<div style="padding:28px">
-  <h2 style="color:#E8EAF0;font-size:18px;margin:0 0 8px">${titles[purpose] || 'Your OTP'}</h2>
-  <p style="color:#9CA3AF;font-size:13px;margin:0 0 24px">Your one-time code — expires in <strong style="color:#F7B731">${process.env.OTP_EXPIRY_MINUTES || 15} minutes</strong>.</p>
-  <div style="background:#07080F;border:2px dashed #F7B731;border-radius:12px;padding:20px;text-align:center">
-    <div style="font-size:40px;font-weight:900;letter-spacing:14px;color:#F7B731;font-family:monospace">${otp}</div>
-  </div>
-  <p style="color:#6B7280;font-size:12px;margin-top:20px">Never share this code. If you didn't request it, ignore this email.</p>
-</div></div></body></html>`;
+    const titles = {
+        signup: 'Verify Your Email',
+        login: 'Your Login Code',
+        forgot: 'Reset Password'
+    };
+
+    return `
+    <html>
+    <body style="font-family:Arial;background:#111;color:#fff;padding:20px">
+        <h2>${titles[purpose] || 'Your OTP'}</h2>
+        <p>Your OTP is:</p>
+        <h1 style="color:#F7B731;letter-spacing:8px">${otp}</h1>
+        <p>Expires in ${process.env.OTP_EXPIRY_MINUTES || 15} minutes</p>
+    </body>
+    </html>
+    `;
 }
 
-// ── SMTP transporter
-const nodemailer = require('nodemailer');
+// ============================================================
+// EMAIL SETUP
+// ============================================================
+
 const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: Number(process.env.EMAIL_PORT) || 587,
     secure: process.env.EMAIL_PORT === '465',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
 });
 
-// ── Send email
+// ============================================================
+// SEND OTP EMAIL
+// ============================================================
+
 async function sendOTPEmail(email, purpose) {
     const otp = await createOTP(email, purpose);
+
     const subjects = {
         signup: 'Verify your RootToLearn email',
-        login: 'Your RootToLearn login code',
-        admin: 'RootToLearn Admin — 2FA code',
-        forgot: 'Reset your RootToLearn password'
+        login: 'Your login OTP',
+        forgot: 'Reset password OTP'
     };
 
     try {
         await transporter.sendMail({
             from: process.env.SMTP_FROM,
             to: email,
-            subject: subjects[purpose] || 'SummarIQ OTP',
+            subject: subjects[purpose] || 'OTP Code',
             html: emailHTML(otp, purpose),
-            text: `Your SummarIQ OTP: ${otp}  (expires in ${process.env.OTP_EXPIRY_MINUTES || 15} minutes)`,
+            text: `Your OTP is ${otp}`
         });
+
+        console.log("📧 OTP sent to:", email);
+
     } catch (err) {
-        console.error('[Email Error]', err.message);
-        throw err; // re-throw so calling code knows it failed
+        console.error("❌ Email Error:", err.message);
+        throw err;
     }
+
     return true;
 }
 
-module.exports = { sendOTPEmail, verifyOTP };
+// ============================================================
+
+module.exports = {
+    sendOTPEmail,
+    verifyOTP
+};
