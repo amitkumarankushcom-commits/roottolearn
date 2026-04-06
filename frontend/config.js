@@ -13,7 +13,7 @@ window.APP_CONFIG = {
   debug: false,
 
   // API Configuration
-  apiUrl: 'https://api.roottolearn.com/api',
+  apiUrl: 'https://roottolearn-backend.onrender.com/api',
 
   // Payment Configuration
   razorpay: {
