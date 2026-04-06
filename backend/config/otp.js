@@ -1,20 +1,28 @@
 // ============================================================
-// OTP SYSTEM (Supabase + Resend Email API)
+// OTP SYSTEM (Supabase + Resend API) — FINAL
 // ============================================================
 
 const crypto = require('crypto');
 const supabase = require('./supabase');
 const { Resend } = require('resend');
 
+// 🔥 Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 
-// ── Hash OTP
+// ============================================================
+// HASH OTP
+// ============================================================
+
 function hashOTP(token) {
     return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-// ── Generate 6-digit OTP
+
+// ============================================================
+// GENERATE OTP (6-digit)
+// ============================================================
+
 function generateOTP() {
     const bytes = crypto.randomBytes(6);
     return Array.from(bytes).map(b => b % 10).join('');
@@ -26,6 +34,8 @@ function generateOTP() {
 // ============================================================
 
 async function createOTP(email, purpose) {
+    console.log("🔥 Creating OTP for:", email);
+
     const token = generateOTP();
     const hash = hashOTP(token);
 
@@ -56,7 +66,7 @@ async function createOTP(email, purpose) {
         throw error;
     }
 
-    console.log("✅ OTP created for:", email);
+    console.log("✅ OTP stored in DB");
 
     return token;
 }
@@ -79,13 +89,13 @@ async function verifyOTP(email, token, purpose, consume = true) {
         .limit(1);
 
     if (error || !data.length) {
-        return { ok: false, error: 'OTP not found. Request a new one.' };
+        return { ok: false, error: 'OTP not found' };
     }
 
     const row = data[0];
 
     if (new Date(row.expires_at).getTime() < Date.now()) {
-        return { ok: false, error: 'OTP expired.' };
+        return { ok: false, error: 'OTP expired' };
     }
 
     if (row.token !== hash) {
@@ -94,7 +104,7 @@ async function verifyOTP(email, token, purpose, consume = true) {
             .update({ attempts: row.attempts + 1 })
             .eq('id', row.id);
 
-        return { ok: false, error: 'Invalid OTP.' };
+        return { ok: false, error: 'Invalid OTP' };
     }
 
     if (consume) {
@@ -112,37 +122,39 @@ async function verifyOTP(email, token, purpose, consume = true) {
 // EMAIL TEMPLATE
 // ============================================================
 
-function emailHTML(otp, purpose) {
+function emailHTML(otp) {
     return `
     <div style="font-family:Arial;padding:20px">
         <h2>Your OTP Code</h2>
         <h1 style="color:#F7B731;letter-spacing:5px">${otp}</h1>
-        <p>This OTP will expire in 15 minutes</p>
+        <p>Expires in 15 minutes</p>
     </div>
     `;
 }
 
 
 // ============================================================
-// SEND OTP EMAIL (Resend)
+// SEND OTP EMAIL (NO TIMEOUT)
 // ============================================================
 
 async function sendOTPEmail(email, purpose) {
+    console.log("📧 Sending OTP to:", email);
+
     const otp = await createOTP(email, purpose);
 
     try {
-        await resend.emails.send({
-            from: 'onboarding@resend.dev',
+        const response = await resend.emails.send({
+            from: 'onboarding@resend.dev', // can change later
             to: email,
             subject: 'Your OTP Code',
-            html: emailHTML(otp, purpose),
+            html: emailHTML(otp),
         });
 
-        console.log("📧 OTP sent to:", email);
+        console.log("✅ Email sent:", response);
 
     } catch (err) {
         console.error("❌ Email Error:", err.message);
-        throw err;
+        // IMPORTANT: do NOT crash API
     }
 
     return true;
