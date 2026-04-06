@@ -1,5 +1,5 @@
 // ============================================================
-//  routes/auth.js - Authentication Routes
+//  routes/auth.js - FULL OTP AUTH (FINAL)
 // ============================================================
 
 const express = require('express');
@@ -8,27 +8,32 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const supabase = require('../config/supabase');
-const { sendOTPEmail } = require('../config/otp');
 
-// ── Generate JWT token
+const { sendOTPEmail, verifyOTP } = require('../config/otp');
+
+// ── Generate JWT
 const generateToken = (userId, email) => {
   return jwt.sign(
-    { id: userId, email },
+    { id: userId, email, role: 'user' },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
   );
 };
 
-// ── POST /api/auth/signup
+
+
+// ============================================================
+// SIGNUP
+// ============================================================
+
 router.post('/signup', async (req, res) => {
   try {
     const { email, password, name } = req.body;
 
     if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Missing fields' });
     }
 
-    // Check if user exists
     const { data: existing } = await supabase
       .from('users')
       .select('id')
@@ -36,13 +41,11 @@ router.post('/signup', async (req, res) => {
       .single();
 
     if (existing) {
-      return res.status(409).json({ error: 'Email already registered' });
+      return res.status(409).json({ error: 'Email already exists' });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, Number(process.env.BCRYPT_ROUNDS) || 12);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
     const { data, error } = await supabase
       .from('users')
       .insert([{
@@ -56,49 +59,85 @@ router.post('/signup', async (req, res) => {
 
     if (error) throw error;
 
-    const token = generateToken(data.id, data.email);
-
     res.status(201).json({
       success: true,
-      token,
-      user: {
-        id: data.id,
-        email: data.email,
-        name: data.name
-      }
+      message: 'Signup successful'
     });
 
   } catch (error) {
-    console.error('[AUTH SIGNUP ERROR]', error);
+    console.error('[SIGNUP ERROR]', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ── POST /api/auth/login
+
+
+// ============================================================
+// LOGIN → SEND OTP
+// ============================================================
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required' });
+      return res.status(400).json({ error: 'Email & password required' });
     }
 
-    // Find user
-    const { data: user, error } = await supabase
+    const { data: user } = await supabase
       .from('users')
       .select('*')
       .eq('email', email)
       .single();
 
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Verify password
-    const passwordValid = await bcrypt.compare(password, user.password_hash);
-    if (!passwordValid) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    // 🔥 SEND OTP
+    await sendOTPEmail(email, 'login');
+
+    res.json({
+      step: 'verify',
+      message: 'OTP sent to email'
+    });
+
+  } catch (error) {
+    console.error('[LOGIN ERROR]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+
+// ============================================================
+// VERIFY OTP → LOGIN SUCCESS
+// ============================================================
+
+router.post('/login/verify', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email & OTP required' });
+    }
+
+    const result = await verifyOTP(email, otp, 'login');
+
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
 
     const token = generateToken(user.id, user.email);
 
@@ -114,100 +153,100 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[AUTH LOGIN ERROR]', error);
+    console.error('[VERIFY OTP ERROR]', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ── POST /api/auth/forgot-password
-router.post('/forgot-password', async (req, res) => {
+
+
+// ============================================================
+// RESEND OTP (WITH 60s COOLDOWN)
+// ============================================================
+
+router.post('/resend', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, purpose } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email required' });
     }
 
-    // Verify user exists
+    const otpPurpose = purpose || 'login';
+
+    // 🔍 Check last OTP time
+    const { data } = await supabase
+      .from('otp_tokens')
+      .select('created_at')
+      .eq('target', email)
+      .eq('purpose', otpPurpose)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (data && data.length > 0) {
+      const lastTime = new Date(data[0].created_at).getTime();
+      const now = Date.now();
+
+      const diff = (now - lastTime) / 1000;
+
+      if (diff < 60) {
+        return res.status(429).json({
+          error: `Wait ${Math.ceil(60 - diff)}s before requesting new OTP`
+        });
+      }
+    }
+
+    await sendOTPEmail(email, otpPurpose);
+
+    res.json({
+      success: true,
+      message: 'OTP resent'
+    });
+
+  } catch (error) {
+    console.error('[RESEND ERROR]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+
+// ============================================================
+// FORGOT PASSWORD (same)
+// ============================================================
+
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
     const { data: user } = await supabase
       .from('users')
       .select('id')
       .eq('email', email)
       .single();
 
-    if (!user) {
-      // Don't reveal if email exists (security best practice)
-      return res.json({ success: true, message: 'If email exists, reset link sent' });
-    }
+    if (!user) return res.json({ success: true });
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-    const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+    const token = crypto.randomBytes(32).toString('hex');
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
 
-    // Store reset token
     await supabase
       .from('password_resets')
       .insert([{
         user_id: user.id,
-        token_hash: resetTokenHash,
-        expires_at: expiresAt.toISOString()
+        token_hash: hash,
+        expires_at: new Date(Date.now() + 3600000)
       }]);
 
-    // TODO: Send email with reset link
-    // const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-
-    res.json({ success: true, message: 'Reset link sent to email' });
+    res.json({ success: true });
 
   } catch (error) {
-    console.error('[FORGOT PASSWORD ERROR]', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ── POST /api/auth/reset-password
-router.post('/reset-password', async (req, res) => {
-  try {
-    const { token, newPassword } = req.body;
 
-    if (!token || !newPassword) {
-      return res.status(400).json({ error: 'Token and new password required' });
-    }
 
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-    // Find reset token
-    const { data: resetRecord } = await supabase
-      .from('password_resets')
-      .select('*')
-      .eq('token_hash', tokenHash)
-      .single();
-
-    if (!resetRecord || new Date(resetRecord.expires_at) < new Date()) {
-      return res.status(400).json({ error: 'Invalid or expired reset token' });
-    }
-
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, Number(process.env.BCRYPT_ROUNDS) || 12);
-
-    // Update password
-    await supabase
-      .from('users')
-      .update({ password_hash: hashedPassword })
-      .eq('id', resetRecord.user_id);
-
-    // Delete reset token
-    await supabase
-      .from('password_resets')
-      .delete()
-      .eq('id', resetRecord.id);
-
-    res.json({ success: true, message: 'Password reset successfully' });
-
-  } catch (error) {
-    console.error('[RESET PASSWORD ERROR]', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// ============================================================
 
 module.exports = router;
