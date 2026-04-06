@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const supabase = require('../config/supabase');
+const { sendOTPEmail } = require('../config/otp');
 
 // ── Generate JWT token
 const generateToken = (userId, email) => {
