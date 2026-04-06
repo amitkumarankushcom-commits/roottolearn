@@ -3,7 +3,8 @@
 
 <head>
   <meta charset="UTF-8">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23F7B731'/%3E%3Ctext y='24' x='5' font-size='21' font-weight='900' font-family='Arial' fill='%23000'%3ER%3C/text%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23F7B731'/%3E%3Ctext y='24' x='5' font-size='21' font-weight='900' font-family='Arial' fill='%23000'%3ER%3C/text%3E%3C/svg%3E">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>RootToLearn</title>
   <link rel="stylesheet" href="/assets/css/main.css">
@@ -51,13 +52,16 @@
       <div class="fg"><label class="flabel">AI Model</label>
         <div class="style-g">
           <div class="sopt sel" id="m-claude" onclick="setModel(this,'claude')">
-            <div class="si">🧠</div><div class="sn">Claude</div>
+            <div class="si">🧠</div>
+            <div class="sn">Claude</div>
           </div>
           <div class="sopt" id="m-gpt" onclick="setModel(this,'gpt')">
-            <div class="si">⚡</div><div class="sn">GPT-4o</div>
+            <div class="si">⚡</div>
+            <div class="sn">GPT-4o</div>
           </div>
           <div class="sopt" id="m-deepseek" onclick="setModel(this,'deepseek')">
-            <div class="si">🔍</div><div class="sn">DeepSeek</div>
+            <div class="si">🔍</div>
+            <div class="sn">DeepSeek</div>
           </div>
         </div>
       </div>
@@ -190,7 +194,8 @@
             Advertisement</div>
           <div class="ad-placeholder">Google AdSense Ad - Replace with your AdSense code</div>
         </div>
-        <div class="upgrade-bar" id="upgradeBar">Remove ads - <a onclick="openUpgrade()" style="cursor:pointer">Upgrade to Pro ₹849/mo</a></div>
+        <div class="upgrade-bar" id="upgradeBar">Remove ads - <a onclick="openUpgrade()" style="cursor:pointer">Upgrade
+            to Pro ₹849/mo</a></div>
         <div class="res-meta">
           <span class="mi"><strong id="mWords">-</strong> words</span>
           <span class="mi"><strong id="mTime">-</strong> read</span>
@@ -203,7 +208,9 @@
   <!-- Upgrade / Payment Modal -->
   <div class="overlay" id="payOv">
     <div class="modal">
-      <div class="modal-h"><div class="modal-title">Upgrade Plan</div><button class="mcls" onclick="closeUpgrade()">×</button></div>
+      <div class="modal-h">
+        <div class="modal-title">Upgrade Plan</div><button class="mcls" onclick="closeUpgrade()">×</button>
+      </div>
       <!-- Plan selector -->
       <div class="pay-tabs" style="margin-bottom:.75rem">
         <button class="ptab active" id="planPro" onclick="selectPlan(this,'pro',849)">Pro — ₹849/mo</button>
@@ -213,13 +220,16 @@
       <!-- Promo -->
       <div class="fg">
         <label class="flabel">Promo Code</label>
-        <div class="crow"><input class="cinput" type="text" id="payCpn" placeholder="e.g. SAVE20"><button class="btn-apply" onclick="applyPayCpn()">Apply</button></div>
+        <div class="crow"><input class="cinput" type="text" id="payCpn" placeholder="e.g. SAVE20"><button
+            class="btn-apply" onclick="applyPayCpn()">Apply</button></div>
         <div class="cmsg" id="payCpnMsg"></div>
       </div>
-      <div style="background:rgba(247,183,49,.08);border:1px solid rgba(247,183,49,.2);border-radius:10px;padding:12px 14px;font-size:.8rem;color:var(--muted);margin-bottom:1rem">
+      <div
+        style="background:rgba(247,183,49,.08);border:1px solid rgba(247,183,49,.2);border-radius:10px;padding:12px 14px;font-size:.8rem;color:var(--muted);margin-bottom:1rem">
         Pay using GPay, PhonePe, Paytm, BHIM, or any UPI app.
       </div>
-      <div class="fg"><label class="flabel">UPI ID <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+      <div class="fg"><label class="flabel">UPI ID <span
+            style="color:var(--muted);font-weight:400">(optional)</span></label>
         <input class="finput" id="upiId" type="text" placeholder="yourname@upi">
       </div>
       <button class="pay-btn" id="upiPayBtn" onclick="processUpiPay()">📱 Pay via UPI</button>
@@ -228,7 +238,9 @@
   </div>
 
   <div class="toast" id="toast"><span id="tIcon">OK</span><span class="toast-txt" id="tTxt">Done!</span></div>
-  <script src="../assets/js/api.js?v=2"></script>  <script src="../config.js"></script>  <script src="../assets/js/ads.js"></script>
+  <script src="/assets/js/api.js?v=2"></script>
+  <script src="/config.js"></script>
+  <script src="/assets/js/ads.js"></script>
   <script>
     const MSGS = ['Reading your document...', 'Extracting key info...', 'Running AI analysis...', 'Highlighting key points...', 'Formatting summary...'];
     const OCC_CFG = {
@@ -321,11 +333,11 @@
 
     // ── Payment modal
     const RAZORPAY_KEY = 'rzp_test_SYgxg67CSCdmMD'; // public key — safe in frontend
-    const COUPONS = { SAVE20:20, LAUNCH50:50, STUDENT30:30, FREEMONTH:100, WELCOME15:15 };
-    let discount = 0, curPay = { plan:'pro', price:849 };
+    const COUPONS = { SAVE20: 20, LAUNCH50: 50, STUDENT30: 30, FREEMONTH: 100, WELCOME15: 15 };
+    let discount = 0, curPay = { plan: 'pro', price: 849 };
 
     function openUpgrade() {
-      if (!isLoggedIn()) { location.href='login.html'; return; }
+      if (!isLoggedIn()) { location.href = 'login.html'; return; }
       document.getElementById('payOv').classList.add('show');
       renderOrder();
     }
@@ -339,7 +351,7 @@
     function renderOrder() {
       const total = Math.round(curPay.price * (1 - discount / 100));
       const discRow = discount > 0 ? `<div class="or disc"><span class="lbl">Discount (${discount}%)</span><span class="val">−₹${curPay.price - total}</span></div>` : '';
-      document.getElementById('orderSum').innerHTML = `<div class="or"><span class="lbl">${curPay.plan.charAt(0).toUpperCase()+curPay.plan.slice(1)} Plan</span><span class="val">₹${curPay.price}/mo</span></div>${discRow}<div class="or total"><span class="lbl">Total</span><span class="val">₹${total}/mo</span></div>`;
+      document.getElementById('orderSum').innerHTML = `<div class="or"><span class="lbl">${curPay.plan.charAt(0).toUpperCase() + curPay.plan.slice(1)} Plan</span><span class="val">₹${curPay.price}/mo</span></div>${discRow}<div class="or total"><span class="lbl">Total</span><span class="val">₹${total}/mo</span></div>`;
     }
     function applyPayCpn() {
       const c = document.getElementById('payCpn').value.trim().toUpperCase();
@@ -359,21 +371,21 @@
         const r = await payments.createOrder(curPay.plan, cpn);
         const d = await r.json();
         if (r.ok) { orderId = d.orderId; key = d.key; }
-      } catch(e) {}
+      } catch (e) { }
 
       const options = {
         key, amount: total * 100, currency: 'INR',
         name: 'RootToLearn', description: curPay.plan + ' Plan',
         prefill: { email: getUser()?.email || '', contact: '', vpa: upiId || undefined },
         theme: { color: '#F7B731' },
-        handler: async function(response) {
+        handler: async function (response) {
           closeUpgrade();
           if (orderId) {
             try {
-              const vr = await payments.verifyUpi({...response, razorpay_order_id: orderId});
+              const vr = await payments.verifyUpi({ ...response, razorpay_order_id: orderId });
               const vd = await vr.json();
               if (vd.success) { toast('🎉', curPay.plan + ' activated!'); setTimeout(() => location.reload(), 1500); return; }
-            } catch(e) {}
+            } catch (e) { }
           }
           toast('🎉', 'Payment done! Refreshing…'); setTimeout(() => location.reload(), 1500);
         },
@@ -381,7 +393,7 @@
       };
       if (orderId) options.order_id = orderId;
       try { new Razorpay(options).open(); }
-      catch(e) { toast('❌', 'Could not open payment. Check console.'); btn.textContent = '📱 Pay via UPI'; btn.disabled = false; }
+      catch (e) { toast('❌', 'Could not open payment. Check console.'); btn.textContent = '📱 Pay via UPI'; btn.disabled = false; }
     }
   </script>
 </body>
