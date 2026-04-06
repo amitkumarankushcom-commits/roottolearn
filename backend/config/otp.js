@@ -1,6 +1,6 @@
 // backend/config/otp.js — OTP generation, storage & email delivery
 const crypto = require('crypto');
-const db = require('./db');
+const db = require('./supabase');
 
 // ── Hash OTP for storage (constant-time comparison via SHA-256)
 function hashOTP(token) {
