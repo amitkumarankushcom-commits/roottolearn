@@ -1,174 +1,181 @@
-/* ============================================================
-   Signup Page Styles
-   ============================================================ */
-
-.signup-container {
-  max-width: 450px;
-  margin: 60px auto;
-  padding: 2rem;
-  background: var(--bg-alt);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1rem;
+    /* background: radial-gradient(ellipse at 50% 0%, rgb(0, 0, 0) 0%, transparent 60%); */
 }
 
-.signup-header {
-  text-align: center;
-  margin-bottom: 2rem;
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--rx);
+    padding: 2.25rem;
+    width: 100%;
+    max-width: 400px;
 }
 
-.signup-header h1 {
-  font-size: 1.75rem;
-  margin-bottom: 0.5rem;
+.logo {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: 1.75rem;
 }
 
-.signup-header p {
-  color: var(--muted);
-  font-size: 0.95rem;
+.logo .li {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 900;
+    color: #000;
+    font-family: 'Syne', sans-serif;
 }
 
-.form-group {
-  margin-bottom: 1.25rem;
+.logo-text {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.2rem;
 }
 
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-  color: var(--fg);
-  font-size: 0.95rem;
+.logo-text span {
+    color: var(--accent);
 }
 
-.form-group input,
-.form-group select {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 1rem;
-  transition: var(--transition);
+.step {
+    display: none;
 }
 
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+.step.show {
+    display: block;
 }
 
-.password-strength {
-  display: flex;
-  gap: 4px;
-  margin-top: 0.5rem;
+.step-ind {
+    display: flex;
+    gap: .35rem;
+    margin-bottom: 1.5rem;
 }
 
-.strength-bar {
-  flex: 1;
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  transition: var(--transition);
+.sd {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border2);
+    transition: all .3s;
 }
 
-.strength-bar.weak {
-  background: var(--danger);
+.sd.active {
+    background: var(--accent);
+    width: 20px;
+    border-radius: 3px;
 }
 
-.strength-bar.medium {
-  background: var(--warning);
+.sd.done {
+    background: var(--success);
 }
 
-.strength-bar.strong {
-  background: var(--success);
+.otp-row {
+    display: flex;
+    gap: .4rem;
+    justify-content: center;
+    margin: .85rem 0;
 }
 
-.strength-text {
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
-  color: var(--muted);
+.otp-d {
+    width: 44px;
+    height: 52px;
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface2);
+    border: 1.5px solid var(--border2);
+    border-radius: 9px;
+    color: var(--text);
+    transition: all .2s;
 }
 
-.terms-checkbox {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-  font-size: 0.9rem;
+.otp-d:focus {
+    border-color: var(--accent);
+    background: var(--adim);
 }
 
-.terms-checkbox input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
+.btn-go {
+    width: 100%;
+    padding: .78rem;
+    border-radius: 9px;
+    font-size: .95rem;
+    font-weight: 800;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    transition: all .2s;
+}
+
+.btn-go:hover {
+    opacity: .9;
+}
+
+.btn-go:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+.err {
+    font-size: .8rem;
+    color: var(--danger);
+    text-align: center;
+    margin-top: .5rem;
+    font-weight: 600;
+}
+
+.link-row {
+    text-align: center;
+    font-size: .82rem;
+    color: var(--muted);
+    margin-top: .9rem;
+}
+
+.link-row a {
+    color: var(--accent);
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.timer {
+    font-size: .78rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: .35rem;
+}
+
+.timer span {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.pass-wrapper {
+  position: relative;
+}
+
+.toggle-pass {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text);
   cursor: pointer;
-  accent-color: var(--primary);
-}
-
-.terms-checkbox label {
-  margin: 0;
-  color: var(--fg-muted);
-  font-weight: normal;
-  cursor: pointer;
-}
-
-.terms-checkbox a {
-  color: var(--primary);
-  text-decoration: none;
-  transition: var(--transition);
-}
-
-.terms-checkbox a:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-.btn-signup {
-  width: 100%;
-  padding: 0.75rem;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: var(--transition);
-  margin-bottom: 1rem;
-}
-
-.btn-signup:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-}
-
-.btn-signup:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.signup-footer {
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.signup-footer a {
-  color: var(--primary);
-  text-decoration: none;
-  transition: var(--transition);
-}
-
-.signup-footer a:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-@media (max-width: 600px) {
-  .signup-container {
-    margin: 40px 1rem;
-    padding: 1.5rem;
-  }
+  font-size: 1.1em;
+  z-index: 10;
 }
