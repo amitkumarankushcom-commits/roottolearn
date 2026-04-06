@@ -1,10 +1,13 @@
 // ============================================================
-// OTP SYSTEM (Supabase + Email)
+// OTP SYSTEM (Supabase + Resend Email API)
 // ============================================================
 
 const crypto = require('crypto');
 const supabase = require('./supabase');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 
 // ── Hash OTP
 function hashOTP(token) {
@@ -16,6 +19,7 @@ function generateOTP() {
     const bytes = crypto.randomBytes(6);
     return Array.from(bytes).map(b => b % 10).join('');
 }
+
 
 // ============================================================
 // CREATE OTP (Supabase)
@@ -57,6 +61,7 @@ async function createOTP(email, purpose) {
     return token;
 }
 
+
 // ============================================================
 // VERIFY OTP
 // ============================================================
@@ -79,12 +84,10 @@ async function verifyOTP(email, token, purpose, consume = true) {
 
     const row = data[0];
 
-    // Expiry check
     if (new Date(row.expires_at).getTime() < Date.now()) {
-        return { ok: false, error: 'OTP expired. Request a new one.' };
+        return { ok: false, error: 'OTP expired.' };
     }
 
-    // Wrong OTP
     if (row.token !== hash) {
         await supabase
             .from('otp_tokens')
@@ -94,7 +97,6 @@ async function verifyOTP(email, token, purpose, consume = true) {
         return { ok: false, error: 'Invalid OTP.' };
     }
 
-    // Mark used
     if (consume) {
         await supabase
             .from('otp_tokens')
@@ -105,63 +107,35 @@ async function verifyOTP(email, token, purpose, consume = true) {
     return { ok: true };
 }
 
+
 // ============================================================
 // EMAIL TEMPLATE
 // ============================================================
 
 function emailHTML(otp, purpose) {
-    const titles = {
-        signup: 'Verify Your Email',
-        login: 'Your Login Code',
-        forgot: 'Reset Password'
-    };
-
     return `
-    <html>
-    <body style="font-family:Arial;background:#111;color:#fff;padding:20px">
-        <h2>${titles[purpose] || 'Your OTP'}</h2>
-        <p>Your OTP is:</p>
-        <h1 style="color:#F7B731;letter-spacing:8px">${otp}</h1>
-        <p>Expires in ${process.env.OTP_EXPIRY_MINUTES || 15} minutes</p>
-    </body>
-    </html>
+    <div style="font-family:Arial;padding:20px">
+        <h2>Your OTP Code</h2>
+        <h1 style="color:#F7B731;letter-spacing:5px">${otp}</h1>
+        <p>This OTP will expire in 15 minutes</p>
+    </div>
     `;
 }
 
-// ============================================================
-// EMAIL SETUP
-// ============================================================
-
-const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: process.env.EMAIL_PORT === '465',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
 
 // ============================================================
-// SEND OTP EMAIL
+// SEND OTP EMAIL (Resend)
 // ============================================================
 
 async function sendOTPEmail(email, purpose) {
     const otp = await createOTP(email, purpose);
 
-    const subjects = {
-        signup: 'Verify your RootToLearn email',
-        login: 'Your login OTP',
-        forgot: 'Reset password OTP'
-    };
-
     try {
-        await transporter.sendMail({
-            from: process.env.SMTP_FROM,
+        await resend.emails.send({
+            from: 'onboarding@resend.dev',
             to: email,
-            subject: subjects[purpose] || 'OTP Code',
+            subject: 'Your OTP Code',
             html: emailHTML(otp, purpose),
-            text: `Your OTP is ${otp}`
         });
 
         console.log("📧 OTP sent to:", email);
@@ -173,6 +147,7 @@ async function sendOTPEmail(email, purpose) {
 
     return true;
 }
+
 
 // ============================================================
 
