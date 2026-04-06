@@ -1,4 +1,3 @@
-<?
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -164,6 +163,8 @@ function setLoad(id,on){const b=document.getElementById(id);b.disabled=on;b.clas
 function showMsg(id,msg,type){const e=document.getElementById(id);e.textContent=msg;e.className=type==='err'?'msg-err':'msg-ok';e.style.display='block';if(type!=='err')setTimeout(()=>e.style.display='none',3000);}
 function hide(id){document.getElementById(id).style.display='none';}
 </script>
+  <script src="config.js"></script>
+  <script src="assets/js/api.js"></script>
 </body>
 </html>
 

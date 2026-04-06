@@ -1,13 +1,18 @@
 // frontend/assets/js/api.js — All API calls to backend
-// Dynamically set API URL based on environment
+// Use environment variable from config.js (loaded BEFORE this file)
 const API = (() => {
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    // Local development
-    return 'http://localhost:4000/api';
-  } else {
-    // Production (Render)
-    return 'https://backen-roottolearn.onrender.com/api';
+  // Try to use config.js value first
+  if (typeof window.APP_CONFIG !== 'undefined' && window.APP_CONFIG.apiUrl) {
+    return window.APP_CONFIG.apiUrl;
   }
+  
+  // Fallback based on hostname
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:4000/api';
+  }
+  
+  // Production default (Render)
+  return 'https://roottolearn-api.onrender.com/api';
 })();
 
 // ── Token management (memory + sessionStorage)

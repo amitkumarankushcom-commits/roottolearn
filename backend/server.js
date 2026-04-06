@@ -1,5 +1,5 @@
 // ============================================================
-//  backend/server.js — RootToLearn Express API Entry Point
+//  backend/server.js - RootToLearn Express API Entry Point
 // ============================================================
 
 require('dotenv').config();
@@ -9,33 +9,26 @@ const cors        = require('cors');
 const helmet      = require('helmet');
 const compression = require('compression');
 const rateLimit   = require('express-rate-limit');
+const supabase    = require("./config/supabase");
 
-// ── Trust proxy (nginx / load balancer)
-app.set('trust proxy', 1);
-
-// ── Security headers
-app.use(helmet({ contentSecurityPolicy: false }));
-
-// ── CORS Configuration (FIXED)
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://roottolearn999.netlify.app"
-];
-
+// CREATE APP FIRST (very important - MUST be before app.use/app.set)
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy (nginx / load balancer)
+app.set('trust proxy', 1);
+
+// Security headers
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// CORS Configuration - parse comma-separated origins into array
+const corsOriginsList = (process.env.CORS_ORIGINS || 'http://localhost:3000')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(origin => origin);
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow Postman / curl
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("CORS not allowed"));
-    }
-  },
+  origin: corsOriginsList,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
@@ -106,9 +99,24 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     port: PORT,
-    corsOrigins: allowedOrigins,
+    corsOrigins: corsOriginsList.join(', '),
     requestOrigin: req.headers.origin,
   });
+});
+
+app.get("/api/test/db", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .limit(1);
+
+    if (error) throw error;
+
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── 404 handler
@@ -134,9 +142,8 @@ const server = app.listen(PORT, () => {
   console.log('═══════════════════════════════════════════════════');
   console.log(`Port: ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
- console.log(`Allowed Origins: ${allowedOrigins?.join(', ')}`);
+  console.log(`Database: PostgreSQL/Supabase`);
   console.log('═══════════════════════════════════════════════════');
-  console.log(`Running at http://localhost:${PORT}`);
 });
 
 // ── Server error handling
@@ -144,7 +151,7 @@ server.on('error', (err) => {
   console.error(`❌ Server error: ${err.message}`);
 });
 
-// ── Handle unhandled promises (DO NOT CRASH)
+// ── Handle unhandled promises
 process.on('unhandledRejection', (reason) => {
   console.error('❌ Unhandled Rejection:', reason);
 });

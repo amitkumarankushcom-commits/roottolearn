@@ -1,4 +1,3 @@
-<?
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -153,6 +152,8 @@ function startTimer(s=600){
 function setLoad(id,on){const b=document.getElementById(id);b.disabled=on;b.classList.toggle('loading',on);}
 function showErr(id,msg){const e=document.getElementById(id);e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',4000);}
 </script>
+  <script src="config.js"></script>
+  <script src="assets/js/api.js"></script>
 </body>
 </html>
 
