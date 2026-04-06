@@ -97,7 +97,7 @@
           <button type="submit" class="btn-primary">Reset Password</button>
         </form>
         <div class="auth-footer">
-          <span>Ready to sign in? <a href="`login.html">Sign In</a></span>
+          <span>Ready to sign in? <a href="login.html">Sign In</a></span>
         </div>
       </div>
     </div>
@@ -156,7 +156,7 @@
         const res = await auth.resetPassword({ email: S.email, otp: S.otp, newPassword: newPass });
         if (!res.ok) throw new Error((await res.json()).error || 'Reset failed');
         toast('✓', 'Password reset! Redirecting to login...');
-        setTimeout(() => location.href = 'login.php', 2000);
+        setTimeout(() => location.href = 'login.html', 2000);
       } catch (err) { toast('✗', err.message); }
     }
 
