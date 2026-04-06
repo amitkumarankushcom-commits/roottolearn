@@ -117,13 +117,6 @@ async function verifyOTP(email, token, purpose, consume = true) {
     return { ok: true };
 }
 
-if (res.success) {
-    localStorage.setItem("token", res.token);
-    localStorage.setItem("user", JSON.stringify(res.user));
-
-    window.location.href = "index.html";
-}
-
 // ============================================================
 // EMAIL TEMPLATE
 // ============================================================
