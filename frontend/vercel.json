@@ -1,0 +1,16 @@
+{
+  "buildCommand": "echo 'Static HTML - no build needed'",
+  "public": true,
+  "env": {
+    "APP_ENV": "production",
+    "APP_API_URL": "@app_api_url",
+    "APP_DEBUG": "false"
+  },
+  "envPrefix": "APP_",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/$1"
+    }
+  ]
+}

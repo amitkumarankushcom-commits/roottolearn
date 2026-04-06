@@ -1,0 +1,28 @@
+# Environment variables (PRIVATE - never commit)
+.env
+.env.local
+.env.*.local
+.env_netlify
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# System
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build & Temp
+dist/
+build/
+.cache
+
+# Git
+.git/

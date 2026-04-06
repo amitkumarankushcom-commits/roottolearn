@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: roottolearn-backend
+    runtime: node
+    plan: standard
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: supabase_postgres
+          property: connectionString
+      - key: FRONTEND_URL
+        value: https://roottolearn.vercel.app
+      - key: CORS_ORIGINS
+        value: https://roottolearn.vercel.app,https://www.roottolearn.com
+databases:
+  - name: supabase_postgres
+    databaseURL: ${SUPABASE_DATABASE_URL}
