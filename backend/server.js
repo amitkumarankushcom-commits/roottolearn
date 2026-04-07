@@ -4,15 +4,15 @@
 
 require('dotenv').config();
 
-const express     = require('express');
-const cors        = require('cors');
-const helmet      = require('helmet');
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
 const compression = require('compression');
-const rateLimit   = require('express-rate-limit');
-const supabase    = require("./config/supabase");
+const rateLimit = require('express-rate-limit');
+const supabase = require("./config/supabase");
 
 // CREATE APP FIRST (very important - MUST be before app.use/app.set)
-const app  = express();
+const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Trust proxy (nginx / load balancer)
@@ -53,12 +53,12 @@ app.use(rateLimit({
 }));
 
 // ── Routes
-app.use('/api/auth',      require('./routes/auth'));
-app.use('/api/users',     require('./routes/users'));
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/summaries', require('./routes/summaries'));
-app.use('/api/admin',     require('./routes/admin'));
-app.use('/api/payments',  require('./routes/payments'));
-app.use('/api/coupons',   require('./routes/coupons'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/payments', require('./routes/payments'));
+app.use('/api/coupons', require('./routes/coupons'));
 
 // ── TEST ENDPOINT (dev only)
 if (process.env.NODE_ENV !== 'production') {
@@ -148,7 +148,10 @@ app.get("/api/test/status", async (req, res) => {
     server: 'ok',
     timestamp: new Date().toISOString(),
     supabase: { connected: false },
-    email: { connected: false, configured: false },
+    email: {
+  connected: !!process.env.RESEND_API_KEY,
+  configured: !!process.env.RESEND_API_KEY
+           },
     resend: { configured: !!process.env.RESEND_API_KEY }
   };
 
