@@ -116,10 +116,69 @@ app.get("/api/test/db", async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ success: true, data });
+    res.json({ success: true, connected: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message, connected: false });
   }
+});
+
+// ── Email/SMTP test endpoint
+app.get("/api/test/email", async (req, res) => {
+  try {
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    await transporter.verify();
+    res.json({ success: true, email: process.env.EMAIL_USER, connected: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message, connected: false });
+  }
+});
+
+// ── Connection status (all checks)
+app.get("/api/test/status", async (req, res) => {
+  const status = {
+    server: 'ok',
+    timestamp: new Date().toISOString(),
+    supabase: { connected: false },
+    email: { connected: false, configured: false }
+  };
+
+  // Check Supabase
+  try {
+    const { error } = await supabase.from("users").select("id").limit(1);
+    status.supabase = { connected: !error, error: error?.message };
+  } catch (err) {
+    status.supabase = { connected: false, error: err.message };
+  }
+
+  // Check Email
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    status.email.configured = true;
+    try {
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.EMAIL_PORT) || 587,
+        secure: false,
+        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+      });
+      await transporter.verify();
+      status.email.connected = true;
+    } catch (err) {
+      status.email.error = err.message;
+    }
+  }
+
+  res.json(status);
 });
 
 // ── 404 handler
