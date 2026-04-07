@@ -117,6 +117,7 @@ async function verifyOTP(email, token, purpose, consume = true) {
     return { ok: true };
 }
 
+
 // ============================================================
 // EMAIL TEMPLATE
 // ============================================================
@@ -124,7 +125,7 @@ async function verifyOTP(email, token, purpose, consume = true) {
 function emailHTML(otp) {
     return `
     <div style="font-family:Arial;padding:20px">
-        <h2>RootToLearn</h2>
+        <h2>Your OTP Code</h2>
         <h1 style="color:#F7B731;letter-spacing:5px">${otp}</h1>
         <p>Expires in 15 minutes</p>
     </div>
