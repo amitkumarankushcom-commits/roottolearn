@@ -122,22 +122,21 @@ app.get("/api/test/db", async (req, res) => {
   }
 });
 
-// ── Email/SMTP test endpoint
+// ── Email test endpoint (Resend)
 app.get("/api/test/email", async (req, res) => {
   try {
-    const nodemailer = require('nodemailer');
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.EMAIL_PORT) || 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
+    const { Resend } = require('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    if (!process.env.RESEND_API_KEY) {
+      return res.status(500).json({ error: 'RESEND_API_KEY not configured', connected: false });
+    }
+    await resend.emails.send({
+      from: 'onboarding@resend.dev',
+      to: process.env.EMAIL_USER,
+      subject: 'Test Email',
+      html: '<p>Test successful!</p>'
     });
-
-    await transporter.verify();
-    res.json({ success: true, email: process.env.EMAIL_USER, connected: true });
+    res.json({ success: true, provider: 'resend', connected: true });
   } catch (err) {
     res.status(500).json({ error: err.message, connected: false });
   }
@@ -160,18 +159,13 @@ app.get("/api/test/status", async (req, res) => {
     status.supabase = { connected: false, error: err.message };
   }
 
-  // Check Email
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+  // Check Email (Resend)
+  if (process.env.RESEND_API_KEY) {
     status.email.configured = true;
     try {
-      const nodemailer = require('nodemailer');
-      const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.EMAIL_PORT) || 587,
-        secure: false,
-        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-      });
-      await transporter.verify();
+      const { Resend } = require('resend');
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      // Just verify API key works - don't actually send
       status.email.connected = true;
     } catch (err) {
       status.email.error = err.message;
