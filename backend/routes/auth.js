@@ -85,24 +85,32 @@ router.post('/signup', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
+    console.log("🔵 LOGIN REQUEST:", req.body);
     const { email, password } = req.body;
 
     if (!email || !password) {
+      console.log("❌ Missing email or password");
       return res.status(400).json({ error: 'Email & password required' });
     }
 
+    console.log("🔵 Looking up user:", email);
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
       .eq('email', email)
       .single();
 
+    console.log("🔵 User lookup result:", { user: user ? 'found' : 'null', error });
+
     if (error || !user) {
+      console.log("❌ User not found");
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    console.log("🔵 Checking password...");
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
+      console.log("❌ Invalid password");
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -110,6 +118,7 @@ router.post('/login', async (req, res) => {
     console.log("🚀 Sending OTP to:", email);
 
     const emailResult = await sendOTPEmail(email, 'login');
+    console.log("🚀 Email result:", JSON.stringify(emailResult));
     if (!emailResult.ok) {
       console.error("❌ OTP EMAIL ERROR:", emailResult.error);
       return res.status(500).json({ error: 'Failed to send OTP email: ' + emailResult.error });
