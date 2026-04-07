@@ -92,23 +92,47 @@ function socialLogin(p) {
 async function doLogin() {
   userEmail = document.getElementById('email').value.trim();
   const pass = document.getElementById('pass').value;
-  if (!userEmail || !pass) { showErr('loginErr','Fill in all fields.'); return; }
+
+  if (!userEmail || !pass) {
+    showErr('loginErr','Fill in all fields.');
+    return;
+  }
+
   setLoad('loginBtn', true);
+
   try {
     const res = await auth.login({ email:userEmail, password:pass });
     const data = await res.json();
-    // OTP login returns { step: 'verify' } with HTTP 200 - check step first
+
+    console.log("LOGIN RESPONSE:", data); // 🔍 debug
+
+    // ❌ HANDLE ERROR FIRST
+    if (data.error) {
+      showErr('loginErr', data.error);
+      return;
+    }
+
+    // ✅ OTP FLOW
     if (data.step === 'verify') {
       goStep(2);
       initOTP();
       startTimer(600);
+
       document.getElementById('otpInfo').innerHTML =
-        `Code sent to <strong style="color:var(--accent)">${userEmail.replace(/(.{2}).+(@.+)/,'$1***$2')}</strong>`;
-    } else if (!res.ok) {
-      showErr('loginErr', data.error||'Login failed.');
+        `Code sent to <strong style="color:var(--accent)">
+        ${userEmail.replace(/(.{2}).+(@.+)/,'$1***$2')}
+        </strong>`;
+      return;
     }
-  } catch { showErr('loginErr','Network error.'); }
-  finally { setLoad('loginBtn', false); }
+
+    // ❌ fallback
+    showErr('loginErr', 'Unexpected response.');
+
+  } catch {
+    showErr('loginErr','Network error.');
+  } finally {
+    setLoad('loginBtn', false);
+  }
 }
 
 async function verifyOTP() {

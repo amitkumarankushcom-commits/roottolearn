@@ -7,7 +7,7 @@
 # Dependencies
 node_modules/
 package-lock.json
-
+.claude
 # System
 .DS_Store
 Thumbs.db

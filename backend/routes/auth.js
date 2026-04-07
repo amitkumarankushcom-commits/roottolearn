@@ -104,11 +104,20 @@ router.post('/login', async (req, res) => {
     }
 
     const emailResult = await sendOTPEmail(email, 'login');
-    // Allow login to proceed even if email times out (OTP is still in DB)
 
-    return res.json({ step: 'verify', message: 'OTP sent to email' });
+    if (!emailResult.ok) {
+      return res.status(500).json({
+        error: emailResult.error || 'Failed to send OTP'
+      });
+    }
 
-  } catch (error) {
+    return res.json({
+      step: 'verify',
+      message: 'OTP sent to email'
+    });
+  }
+
+  catch (error) {
     console.error('[LOGIN ERROR]', error.message);
     res.status(500).json({ error: 'Login failed' });
   }

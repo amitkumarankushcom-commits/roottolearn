@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(node -e ':*)",
+      "Bash(ls -la *.env .env)",
+      "Bash(npm list:*)",
+      "Bash(git restore:*)",
+      "Bash(git reset:*)"
+    ]
+  }
+}
