@@ -1,14 +1,13 @@
-// ============================================================
-//  config/supabase.js - Supabase PostgreSQL Client
-// ============================================================
-
-const { createClient } = require('@supabase/supabase-js');
+  const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+console.log("SUPABASE_URL:", SUPABASE_URL);
+console.log("SERVICE_ROLE_KEY:", SUPABASE_KEY ? "OK" : "MISSING");
+
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
+  console.error("❌ Missing Supabase ENV variables");
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -17,7 +16,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
     persistSession: false,
     detectSessionInUrl: false
   }
-});
+});     
 
 // Test connection
 supabase
@@ -34,4 +33,4 @@ supabase
     console.error('❌ Supabase connection error:', err.message);
   });
 
-module.exports = supabase;
+  module.exports = supabase;
