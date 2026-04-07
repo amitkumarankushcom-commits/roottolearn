@@ -167,7 +167,7 @@ async function sendOTPEmail(email, purpose) {
         // Race between email send and timeout
         const response = await Promise.race([
             resend.emails.send({
-                from: 'onboarding@resend.dev',
+                from:  'RootToLearn <noreply@roottolearn.com>',
                 to: email,
                 subject: 'Your OTP Code - RootToLearn',
                 html: emailHTML(otp)
