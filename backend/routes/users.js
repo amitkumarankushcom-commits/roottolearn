@@ -25,6 +25,27 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// ── GET /api/users/me (aliases /profile for frontend compatibility)
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, name, role, created_at, plan, profile_image')
+      .eq('id', req.user.id)
+      .single();
+
+    if (error || !user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ success: true, user });
+
+  } catch (error) {
+    console.error('[GET PROFILE ERROR]', error.message);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
 // ── GET /api/users/profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {

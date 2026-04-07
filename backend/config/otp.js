@@ -92,6 +92,7 @@ async function createOTP(email, purpose) {
 // ============================================================
 
 async function verifyOTP(email, token, purpose, consume = true) {
+    const MAX_ATTEMPTS = 5;
     const hash = hashOTP(token);
 
     const { data, error } = await supabase
@@ -108,6 +109,12 @@ async function verifyOTP(email, token, purpose, consume = true) {
     }
 
     const row = data[0];
+
+    // Check max attempts
+    if (row.attempts >= MAX_ATTEMPTS) {
+        await supabase.from('otp_tokens').update({ used: true }).eq('id', row.id);
+        return { ok: false, error: 'Too many attempts. Request a new OTP.' };
+    }
 
     if (new Date(row.expires_at).getTime() < Date.now()) {
         return { ok: false, error: 'OTP expired' };

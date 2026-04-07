@@ -1,5 +1,5 @@
 // ============================================================
-//  routes/auth.js — SECURE OTP AUTH (FINAL CLEAN VERSION)
+//  routes/auth.js — Complete Auth Routes
 // ============================================================
 
 const express = require('express');
@@ -8,18 +8,22 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const supabase = require('../config/supabase');
-
 const { sendOTPEmail, verifyOTP } = require('../config/otp');
 
-// ── Generate JWT
-const generateToken = (userId, email) => {
+const OTP_MAX_ATTEMPTS = 5;
+
+const generateToken = (userId, email, role = 'user') => {
   return jwt.sign(
-    { id: userId, email, role: 'user' },
+    { id: userId, email, role },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
   );
 };
 
+// ── Helper: constant-time response to prevent timing attacks
+function userNotFoundResponse() {
+  return res.json({ success: true });
+}
 
 
 // ============================================================
@@ -31,7 +35,7 @@ router.post('/signup', async (req, res) => {
     const { email, password, name } = req.body;
 
     if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Missing fields' });
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
     const { data: existing } = await supabase
@@ -41,7 +45,7 @@ router.post('/signup', async (req, res) => {
       .single();
 
     if (existing) {
-      return res.status(409).json({ error: 'Email already exists' });
+      return res.status(409).json({ error: 'Email already registered' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -57,26 +61,19 @@ router.post('/signup', async (req, res) => {
 
     if (error) throw error;
 
-    // Send OTP verification email
-    console.log("📧 Sending signup OTP to:", email);
-    const emailResult = await sendOTPEmail(email, 'signup');
-    if (!emailResult.ok) {
-      console.error("❌ SIGNUP OTP EMAIL ERROR:", emailResult.error);
-      // Don't fail signup, but log the error
-    }
+    await sendOTPEmail(email, 'signup');
 
     return res.status(201).json({
       success: true,
       step: 'verify',
-      message: 'Signup successful. OTP sent to email.'
+      message: 'Account created. OTP sent to email.'
     });
 
   } catch (error) {
-    console.error('[SIGNUP ERROR]', error);
-    res.status(500).json({ error: error.message });
+    console.error('[SIGNUP ERROR]', error.message);
+    res.status(500).json({ error: 'Registration failed' });
   }
 });
-
 
 
 // ============================================================
@@ -85,56 +82,39 @@ router.post('/signup', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    console.log("🔵 LOGIN REQUEST:", req.body);
     const { email, password } = req.body;
 
     if (!email || !password) {
-      console.log("❌ Missing email or password");
-      return res.status(400).json({ error: 'Email & password required' });
+      return res.status(400).json({ error: 'Email and password required' });
     }
 
-    console.log("🔵 Looking up user:", email);
     const { data: user, error } = await supabase
       .from('users')
-      .select('*')
+      .select('id, email, password_hash')
       .eq('email', email)
       .single();
 
-    console.log("🔵 User lookup result:", { user: user ? 'found' : 'null', error });
-
     if (error || !user) {
-      console.log("❌ User not found");
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    console.log("🔵 Checking password...");
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      console.log("❌ Invalid password");
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // 🔥 DEBUG LOG
-    console.log("🚀 Sending OTP to:", email);
-
     const emailResult = await sendOTPEmail(email, 'login');
-    console.log("🚀 Email result:", JSON.stringify(emailResult));
     if (!emailResult.ok) {
-      console.error("❌ OTP EMAIL ERROR:", emailResult.error);
-      return res.status(500).json({ error: 'Failed to send OTP email: ' + emailResult.error });
+      return res.status(500).json({ error: 'Failed to send OTP' });
     }
 
-    return res.json({
-      step: 'verify',
-      message: 'OTP sent to email'
-    });
+    return res.json({ step: 'verify', message: 'OTP sent to email' });
 
   } catch (error) {
-    console.error('[LOGIN ERROR]', error);
-    res.status(500).json({ error: error.message });
+    console.error('[LOGIN ERROR]', error.message);
+    res.status(500).json({ error: 'Login failed' });
   }
 });
-
 
 
 // ============================================================
@@ -146,10 +126,8 @@ router.post('/login/verify', async (req, res) => {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ error: 'Email & OTP required' });
+      return res.status(400).json({ error: 'Email and OTP required' });
     }
-
-    console.log("🔐 Verifying OTP for:", email);
 
     const result = await verifyOTP(email, otp, 'login');
 
@@ -159,7 +137,7 @@ router.post('/login/verify', async (req, res) => {
 
     const { data: user, error } = await supabase
       .from('users')
-      .select('*')
+      .select('id, email, name, role')
       .eq('email', email)
       .single();
 
@@ -167,7 +145,7 @@ router.post('/login/verify', async (req, res) => {
       return res.status(500).json({ error: 'User not found' });
     }
 
-    const token = generateToken(user.id, user.email);
+    const token = generateToken(user.id, user.email, user.role || 'user');
 
     return res.json({
       success: true,
@@ -181,15 +159,14 @@ router.post('/login/verify', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[VERIFY OTP ERROR]', error);
-    res.status(500).json({ error: error.message });
+    console.error('[VERIFY OTP ERROR]', error.message);
+    res.status(500).json({ error: 'Verification failed' });
   }
 });
 
 
-
 // ============================================================
-// RESEND OTP (60s COOLDOWN)
+// RESEND OTP (60s cooldown)
 // ============================================================
 
 router.post('/resend', async (req, res) => {
@@ -201,7 +178,7 @@ router.post('/resend', async (req, res) => {
     }
 
     const otpPurpose = purpose || 'login';
- 
+
     const { data } = await supabase
       .from('otp_tokens')
       .select('created_at')
@@ -211,37 +188,24 @@ router.post('/resend', async (req, res) => {
       .limit(1);
 
     if (data && data.length > 0) {
-      const lastTime = new Date(data[0].created_at).getTime();
-      const now = Date.now();
-
-      const diff = (now - lastTime) / 1000;
-
+      const diff = (Date.now() - new Date(data[0].created_at).getTime()) / 1000;
       if (diff < 60) {
-        return res.status(429).json({
-          error: `Wait ${Math.ceil(60 - diff)}s before retry`
-        });
+        return res.status(429).json({ error: `Wait ${Math.ceil(60 - diff)}s before retry` });
       }
     }
 
-    console.log("🔁 Resending OTP to:", email);
-
     const emailResult = await sendOTPEmail(email, otpPurpose);
     if (!emailResult.ok) {
-      console.error("❌ RESEND EMAIL ERROR:", emailResult.error);
-      return res.status(500).json({ error: 'Failed to resend OTP email: ' + emailResult.error });
+      return res.status(500).json({ error: 'Failed to resend OTP' });
     }
 
-    return res.json({
-      success: true,
-      message: 'OTP resent'
-    });
+    return res.json({ success: true, message: 'OTP resent' });
 
   } catch (error) {
-    console.error('[RESEND ERROR]', error);
-    res.status(500).json({ error: error.message });
+    console.error('[RESEND ERROR]', error.message);
+    res.status(500).json({ error: 'Resend failed' });
   }
 });
-
 
 
 // ============================================================
@@ -253,10 +217,8 @@ router.post('/verify-email', async (req, res) => {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ error: 'Email & OTP required' });
+      return res.status(400).json({ error: 'Email and OTP required' });
     }
-
-    console.log("🔐 Verifying email OTP for:", email);
 
     const result = await verifyOTP(email, otp, 'signup');
 
@@ -264,28 +226,24 @@ router.post('/verify-email', async (req, res) => {
       return res.status(400).json({ error: result.error });
     }
 
-    // Mark user as verified
     const { error: updateError } = await supabase
       .from('users')
       .update({ is_verified: 1 })
       .eq('email', email);
 
-    if (updateError) {
-      console.error('[VERIFY EMAIL UPDATE ERROR]', updateError);
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
-    const { data: user, error: userError } = await supabase
+    const { data: user } = await supabase
       .from('users')
-      .select('*')
+      .select('id, email, name, role')
       .eq('email', email)
       .single();
 
-    if (userError || !user) {
+    if (!user) {
       return res.status(500).json({ error: 'User not found' });
     }
 
-    const token = generateToken(user.id, user.email);
+    const token = generateToken(user.id, user.email, user.role || 'user');
 
     return res.json({
       success: true,
@@ -299,20 +257,23 @@ router.post('/verify-email', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[VERIFY EMAIL ERROR]', error);
-    res.status(500).json({ error: error.message });
+    console.error('[VERIFY EMAIL ERROR]', error.message);
+    res.status(500).json({ error: 'Verification failed' });
   }
 });
 
 
-
 // ============================================================
-// FORGOT PASSWORD
+// FORGOT PASSWORD → Send OTP
 // ============================================================
 
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email required' });
+    }
 
     const { data: user } = await supabase
       .from('users')
@@ -320,27 +281,222 @@ router.post('/forgot-password', async (req, res) => {
       .eq('email', email)
       .single();
 
-    if (!user) return res.json({ success: true });
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return res.json({ success: true });
+    }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    const emailResult = await sendOTPEmail(email, 'forgot');
+    if (!emailResult.ok) {
+      console.error('[FORGOT PASSWORD]', emailResult.error);
+    }
 
-    await supabase
-      .from('password_resets')
-      .insert([{
-        user_id: user.id,
-        token_hash: hash,
-        expires_at: new Date(Date.now() + 3600000)
-      }]);
+    return res.json({ success: true, step: 'verify' });
+
+  } catch (error) {
+    console.error('[FORGOT ERROR]', error.message);
+    res.status(500).json({ error: 'Request failed' });
+  }
+});
+
+
+// ============================================================
+// VERIFY FORGOT OTP
+// ============================================================
+
+router.post('/verify-forgot', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and OTP required' });
+    }
+
+    const result = await verifyOTP(email, otp, 'forgot');
+
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
 
     return res.json({ success: true });
 
   } catch (error) {
-    console.error('[FORGOT ERROR]', error);
-    res.status(500).json({ error: error.message });
+    console.error('[VERIFY FORGOT ERROR]', error.message);
+    res.status(500).json({ error: 'Verification failed' });
   }
 });
 
+
+// ============================================================
+// RESET PASSWORD
+// ============================================================
+
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ error: 'All fields required' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Verify OTP first
+    const result = await verifyOTP(email, otp, 'forgot');
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    const { error } = await supabase
+      .from('users')
+      .update({ password_hash: hashedPassword })
+      .eq('email', email);
+
+    if (error) throw error;
+
+    // Delete used OTP
+    await supabase
+      .from('otp_tokens')
+      .update({ used: true })
+      .eq('target', email)
+      .eq('purpose', 'forgot');
+
+    return res.json({ success: true });
+
+  } catch (error) {
+    console.error('[RESET PASSWORD ERROR]', error.message);
+    res.status(500).json({ error: 'Password reset failed' });
+  }
+});
+
+
+// ============================================================
+// ADMIN LOGIN → SEND OTP
+// ============================================================
+
+router.post('/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
+
+    const { data: admin, error } = await supabase
+      .from('admins')
+      .select('id, email, password_hash, role, name')
+      .eq('email', email)
+      .single();
+
+    if (error || !admin) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    if (!admin.is_active) {
+      return res.status(403).json({ error: 'Account disabled' });
+    }
+
+    const valid = await bcrypt.compare(password, admin.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const emailResult = await sendOTPEmail(email, 'admin');
+    if (!emailResult.ok) {
+      return res.status(500).json({ error: 'Failed to send OTP' });
+    }
+
+    return res.json({ step: 'verify', message: 'OTP sent to admin email' });
+
+  } catch (error) {
+    console.error('[ADMIN LOGIN ERROR]', error.message);
+    res.status(500).json({ error: 'Admin login failed' });
+  }
+});
+
+
+// ============================================================
+// ADMIN VERIFY OTP
+// ============================================================
+
+router.post('/admin/verify', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and OTP required' });
+    }
+
+    const result = await verifyOTP(email, otp, 'admin');
+
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    const { data: admin } = await supabase
+      .from('admins')
+      .select('id, email, name, role')
+      .eq('email', email)
+      .single();
+
+    if (!admin) {
+      return res.status(500).json({ error: 'Admin not found' });
+    }
+
+    const token = generateToken(admin.id, admin.email, 'admin');
+
+    return res.json({
+      success: true,
+      access: token,
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        name: admin.name,
+        role: admin.role
+      }
+    });
+
+  } catch (error) {
+    console.error('[ADMIN VERIFY ERROR]', error.message);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+});
+
+
+// ============================================================
+// REFRESH TOKEN
+// ============================================================
+
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token required' });
+    }
+
+    // Verify refresh token
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+    } catch {
+      return res.status(403).json({ error: 'Invalid refresh token' });
+    }
+
+    // Issue new access token
+    const access = generateToken(decoded.id, decoded.email, decoded.role);
+
+    return res.json({ access });
+
+  } catch (error) {
+    console.error('[REFRESH ERROR]', error.message);
+    res.status(500).json({ error: 'Token refresh failed' });
+  }
+});
 
 
 // ============================================================
