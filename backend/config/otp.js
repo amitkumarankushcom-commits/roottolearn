@@ -1,13 +1,21 @@
 // ============================================================
-// OTP SYSTEM (Supabase + Resend API) — FINAL
+// OTP SYSTEM (Supabase + Gmail SMTP)
 // ============================================================
 
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const supabase = require('./supabase');
-const { Resend } = require('resend');
 
-// 🔥 Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Gmail SMTP Transporter
+const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT) || 587,
+    secure: false, // true for 465, false for other ports
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
 
 
 // ============================================================
@@ -141,7 +149,7 @@ function emailHTML(otp) {
 
 
 // ============================================================
-// SEND OTP EMAIL (NO TIMEOUT)
+// SEND OTP EMAIL (Gmail SMTP)
 // ============================================================
 
 async function sendOTPEmail(email, purpose) {
@@ -151,19 +159,18 @@ async function sendOTPEmail(email, purpose) {
     console.log("📧 OTP generated (raw):", otp);
 
     try {
-        const response = await resend.emails.send({
-            from: 'onboarding@resend.dev',
+        const info = await transporter.sendMail({
+            from: process.env.SMTP_FROM || process.env.EMAIL_USER,
             to: email,
-            subject: 'Your OTP Code',
-            html: emailHTML(otp),
+            subject: 'Your OTP Code - RootToLearn',
+            html: emailHTML(otp)
         });
 
-        console.log("✅ Email sent response:", JSON.stringify(response));
-        return { ok: true, response };
+        console.log("✅ Email sent:", info.messageId);
+        return { ok: true, messageId: info.messageId };
 
     } catch (err) {
-        console.error("❌ Email Error:", JSON.stringify(err));
-        // Return error object instead of silently swallowing
+        console.error("❌ Email Error:", err.message);
         return { ok: false, error: err.message };
     }
 }
