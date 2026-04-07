@@ -148,7 +148,8 @@ app.get("/api/test/status", async (req, res) => {
     server: 'ok',
     timestamp: new Date().toISOString(),
     supabase: { connected: false },
-    email: { connected: false, configured: false }
+    email: { connected: false, configured: false },
+    resend: { configured: !!process.env.RESEND_API_KEY }
   };
 
   // Check Supabase
@@ -159,20 +160,24 @@ app.get("/api/test/status", async (req, res) => {
     status.supabase = { connected: false, error: err.message };
   }
 
-  // Check Email (Resend)
+  // Check Resend config
   if (process.env.RESEND_API_KEY) {
-    status.email.configured = true;
-    try {
-      const { Resend } = require('resend');
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      // Just verify API key works - don't actually send
-      status.email.connected = true;
-    } catch (err) {
-      status.email.error = err.message;
-    }
+    status.resend.configured = true;
   }
 
   res.json(status);
+});
+
+// ── TEST: Create OTP directly (for debugging)
+app.post("/api/test/create-otp", async (req, res) => {
+  try {
+    const { email, purpose } = req.body;
+    const { sendOTPEmail } = require('./config/otp');
+    const result = await sendOTPEmail(email || 'test@example.com', purpose || 'login');
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── 404 handler
