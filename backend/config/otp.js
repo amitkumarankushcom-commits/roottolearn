@@ -141,6 +141,7 @@ async function sendOTPEmail(email, purpose) {
     console.log("📧 Sending OTP to:", email);
 
     const otp = await createOTP(email, purpose);
+    console.log("📧 OTP generated (raw):", otp);
 
     try {
         const response = await resend.emails.send({
@@ -150,11 +151,11 @@ async function sendOTPEmail(email, purpose) {
             html: emailHTML(otp),
         });
 
-        console.log("✅ Email sent:", response);
+        console.log("✅ Email sent response:", JSON.stringify(response));
         return { ok: true, response };
 
     } catch (err) {
-        console.error("❌ Email Error:", err.message);
+        console.error("❌ Email Error:", JSON.stringify(err));
         // Return error object instead of silently swallowing
         return { ok: false, error: err.message };
     }
