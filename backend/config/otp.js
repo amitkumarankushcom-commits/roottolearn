@@ -148,7 +148,7 @@ function emailHTML(otp) {
 
 
 // ============================================================
-// SEND OTP EMAIL (Resend)
+// SEND OTP EMAIL (Resend with timeout)
 // ============================================================
 
 async function sendOTPEmail(email, purpose) {
@@ -157,20 +157,32 @@ async function sendOTPEmail(email, purpose) {
     const otp = await createOTP(email, purpose);
     console.log("📧 OTP generated (raw):", otp);
 
+    // Create a timeout promise (3 seconds)
+    const timeoutMs = 3000;
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Email request timeout')), timeoutMs);
+    });
+
     try {
-        const response = await resend.emails.send({
-            from: 'onboarding@resend.dev',
-            to: email,
-            subject: 'Your OTP Code - RootToLearn',
-            html: emailHTML(otp)
-        });
+        // Race between email send and timeout
+        const response = await Promise.race([
+            resend.emails.send({
+                from: 'onboarding@resend.dev',
+                to: email,
+                subject: 'Your OTP Code - RootToLearn',
+                html: emailHTML(otp)
+            }),
+            timeoutPromise
+        ]);
 
         console.log("✅ Email sent:", response);
-        return { ok: true, id: response.id };
+        return { ok: true, id: response?.id || 'unknown' };
 
     } catch (err) {
-        console.error("❌ Email Error:", err.message);
-        return { ok: false, error: err.message };
+        console.error("❌ Email Error (timeout or failed):", err.message);
+        // OTP is still created in DB, so we return ok but log the error
+        // The user can still verify with the OTP (or request resend)
+        return { ok: true, warning: 'Email may not have been delivered', error: err.message };
     }
 }
 
