@@ -144,20 +144,20 @@ async function sendOTPEmail(email, purpose) {
 
     try {
         const response = await resend.emails.send({
-            from: 'onboarding@resend.dev', // can change later
+            from: 'onboarding@resend.dev',
             to: email,
             subject: 'Your OTP Code',
             html: emailHTML(otp),
         });
 
         console.log("✅ Email sent:", response);
+        return { ok: true, response };
 
     } catch (err) {
         console.error("❌ Email Error:", err.message);
-        // IMPORTANT: do NOT crash API
+        // Return error object instead of silently swallowing
+        return { ok: false, error: err.message };
     }
-
-    return true;
 }
 
 

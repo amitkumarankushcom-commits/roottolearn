@@ -21,7 +21,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 // Test connection
 supabase
   .from('users')
-  .select('COUNT(*)', { count: 'exact', head: true })
+  .select('*', { count: 'exact', head: true })
   .then(({ count, error }) => {
     if (error) {
       console.error('❌ Supabase connection failed:', error.message);

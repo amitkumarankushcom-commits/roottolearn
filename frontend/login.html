@@ -97,24 +97,16 @@ async function doLogin() {
   try {
     const res = await auth.login({ email:userEmail, password:pass });
     const data = await res.json();
-    if (!res.ok) {
-      if (data.step === 'verify') {
-        // Email not verified - auto-advance to OTP step
-        goStep(2);
-        initOTP();
-        startTimer(600);
-        document.getElementById('otpInfo').innerHTML =
-          `${data.error || 'Email not verified. OTP resent.'}<br><strong style="color:var(--accent)">${userEmail.replace(/(.{2}).+(@.+)/,'$1***$2')}</strong>`;
-      } else {
-        showErr('loginErr', data.error||'Login failed.');
-      }
-      return;
+    // OTP login returns { step: 'verify' } with HTTP 200 - check step first
+    if (data.step === 'verify') {
+      goStep(2);
+      initOTP();
+      startTimer(600);
+      document.getElementById('otpInfo').innerHTML =
+        `Code sent to <strong style="color:var(--accent)">${userEmail.replace(/(.{2}).+(@.+)/,'$1***$2')}</strong>`;
+    } else if (!res.ok) {
+      showErr('loginErr', data.error||'Login failed.');
     }
-    goStep(2);
-    initOTP();
-    startTimer(600);
-    document.getElementById('otpInfo').innerHTML =
-      `Code sent to <strong style="color:var(--accent)">${userEmail.replace(/(.{2}).+(@.+)/,'$1***$2')}</strong>`;
   } catch { showErr('loginErr','Network error.'); }
   finally { setLoad('loginBtn', false); }
 }
@@ -136,14 +128,9 @@ async function verifyOTP() {
       }
       return;
     }
-    // ✅ store correct token
-localStorage.setItem('token', data.token);
-
-// optional: if your system uses refresh (skip if not needed)
-localStorage.setItem('refresh', data.refresh || '');
-
-// ✅ store user (keep same key if your UI uses it)
-localStorage.setItem('siq_user', JSON.stringify(data.user));
+    // ✅ store tokens (api.js expects siq_access and siq_refresh)
+    setTokens(data.token, data.refresh || null);
+    localStorage.setItem('siq_user', JSON.stringify(data.user));
     clearInterval(timerInt); goStep(3);
     setTimeout(() => location.href='app.html', 900);
   } catch { showErr('otpErr','Network error.'); }

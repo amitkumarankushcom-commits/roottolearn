@@ -57,9 +57,18 @@ router.post('/signup', async (req, res) => {
 
     if (error) throw error;
 
+    // Send OTP verification email
+    console.log("📧 Sending signup OTP to:", email);
+    const emailResult = await sendOTPEmail(email, 'signup');
+    if (!emailResult.ok) {
+      console.error("❌ SIGNUP OTP EMAIL ERROR:", emailResult.error);
+      // Don't fail signup, but log the error
+    }
+
     return res.status(201).json({
       success: true,
-      message: 'Signup successful'
+      step: 'verify',
+      message: 'Signup successful. OTP sent to email.'
     });
 
   } catch (error) {
@@ -100,11 +109,10 @@ router.post('/login', async (req, res) => {
     // 🔥 DEBUG LOG
     console.log("🚀 Sending OTP to:", email);
 
-    try {
-      await sendOTPEmail(email, 'login');
-    } catch (err) {
-      console.error("❌ OTP ERROR:", err.message);
-      return res.status(500).json({ error: 'Failed to send OTP' });
+    const emailResult = await sendOTPEmail(email, 'login');
+    if (!emailResult.ok) {
+      console.error("❌ OTP EMAIL ERROR:", emailResult.error);
+      return res.status(500).json({ error: 'Failed to send OTP email: ' + emailResult.error });
     }
 
     return res.json({
@@ -154,7 +162,7 @@ router.post('/login/verify', async (req, res) => {
 
     return res.json({
       success: true,
-      token,
+      access: token,
       user: {
         id: user.id,
         email: user.email,
@@ -208,11 +216,10 @@ router.post('/resend', async (req, res) => {
 
     console.log("🔁 Resending OTP to:", email);
 
-    try {
-      await sendOTPEmail(email, otpPurpose);
-    } catch (err) {
-      console.error("❌ RESEND ERROR:", err.message);
-      return res.status(500).json({ error: 'Failed to resend OTP' });
+    const emailResult = await sendOTPEmail(email, otpPurpose);
+    if (!emailResult.ok) {
+      console.error("❌ RESEND EMAIL ERROR:", emailResult.error);
+      return res.status(500).json({ error: 'Failed to resend OTP email: ' + emailResult.error });
     }
 
     return res.json({
@@ -222,6 +229,68 @@ router.post('/resend', async (req, res) => {
 
   } catch (error) {
     console.error('[RESEND ERROR]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+
+// ============================================================
+// VERIFY EMAIL (Signup OTP)
+// ============================================================
+
+router.post('/verify-email', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email & OTP required' });
+    }
+
+    console.log("🔐 Verifying email OTP for:", email);
+
+    const result = await verifyOTP(email, otp, 'signup');
+
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    // Mark user as verified
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ is_verified: 1 })
+      .eq('email', email);
+
+    if (updateError) {
+      console.error('[VERIFY EMAIL UPDATE ERROR]', updateError);
+      throw updateError;
+    }
+
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (userError || !user) {
+      return res.status(500).json({ error: 'User not found' });
+    }
+
+    const token = generateToken(user.id, user.email);
+
+    return res.json({
+      success: true,
+      access: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role || 'user'
+      }
+    });
+
+  } catch (error) {
+    console.error('[VERIFY EMAIL ERROR]', error);
     res.status(500).json({ error: error.message });
   }
 });
