@@ -34,23 +34,30 @@ function generateOTP() {
 // ============================================================
 
 async function createOTP(email, purpose) {
-    console.log("🔥 Creating OTP for:", email);
+    console.log("🔥 Creating OTP for:", email, "purpose:", purpose);
 
     const token = generateOTP();
     const hash = hashOTP(token);
+    console.log("🔥 OTP hash:", hash);
 
     const expiryMin = Number(process.env.OTP_EXPIRY_MINUTES) || 15;
     const expiresAt = new Date(Date.now() + expiryMin * 60 * 1000);
 
+    console.log("🔥 Deleting old OTPs for:", email);
     // Delete old OTPs
-    await supabase
+    const { error: deleteError } = await supabase
         .from('otp_tokens')
         .delete()
         .eq('target', email)
         .eq('purpose', purpose);
 
+    if (deleteError) {
+        console.error("❌ OTP Delete Error:", deleteError.message);
+    }
+
+    console.log("🔥 Inserting new OTP for:", email);
     // Insert new OTP
-    const { error } = await supabase
+    const { error: insertError } = await supabase
         .from('otp_tokens')
         .insert([{
             target: email,
@@ -61,9 +68,9 @@ async function createOTP(email, purpose) {
             used: false
         }]);
 
-    if (error) {
-        console.error("❌ OTP Insert Error:", error.message);
-        throw error;
+    if (insertError) {
+        console.error("❌ OTP Insert Error:", insertError.message);
+        throw insertError;
     }
 
     console.log("✅ OTP stored in DB");
