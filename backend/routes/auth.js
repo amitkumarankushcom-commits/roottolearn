@@ -1,5 +1,5 @@
 // ============================================================
-//  routes/auth.js - FULL OTP AUTH (FINAL)
+//  routes/auth.js — SECURE OTP AUTH (FINAL CLEAN VERSION)
 // ============================================================
 
 const express = require('express');
@@ -46,20 +46,18 @@ router.post('/signup', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('users')
       .insert([{
         email,
         password_hash: hashedPassword,
         name,
         created_at: new Date().toISOString()
-      }])
-      .select()
-      .single();
+      }]);
 
     if (error) throw error;
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Signup successful'
     });
@@ -84,13 +82,13 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email & password required' });
     }
 
-    const { data: user } = await supabase
+    const { data: user, error } = await supabase
       .from('users')
       .select('*')
       .eq('email', email)
       .single();
 
-    if (!user) {
+    if (error || !user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -99,10 +97,17 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // 🔥 SEND OTP
-    await sendOTPEmail(email, 'login');
+    // 🔥 DEBUG LOG
+    console.log("🚀 Sending OTP to:", email);
 
-    res.json({
+    try {
+      await sendOTPEmail(email, 'login');
+    } catch (err) {
+      console.error("❌ OTP ERROR:", err.message);
+      return res.status(500).json({ error: 'Failed to send OTP' });
+    }
+
+    return res.json({
       step: 'verify',
       message: 'OTP sent to email'
     });
@@ -127,28 +132,34 @@ router.post('/login/verify', async (req, res) => {
       return res.status(400).json({ error: 'Email & OTP required' });
     }
 
+    console.log("🔐 Verifying OTP for:", email);
+
     const result = await verifyOTP(email, otp, 'login');
 
     if (!result.ok) {
       return res.status(400).json({ error: result.error });
     }
 
-    const { data: user } = await supabase
+    const { data: user, error } = await supabase
       .from('users')
       .select('*')
       .eq('email', email)
       .single();
 
+    if (error || !user) {
+      return res.status(500).json({ error: 'User not found' });
+    }
+
     const token = generateToken(user.id, user.email);
 
-    res.json({
+    return res.json({
       success: true,
       token,
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role
+        role: user.role || 'user'
       }
     });
 
@@ -161,7 +172,7 @@ router.post('/login/verify', async (req, res) => {
 
 
 // ============================================================
-// RESEND OTP (WITH 60s COOLDOWN)
+// RESEND OTP (60s COOLDOWN)
 // ============================================================
 
 router.post('/resend', async (req, res) => {
@@ -173,8 +184,7 @@ router.post('/resend', async (req, res) => {
     }
 
     const otpPurpose = purpose || 'login';
-
-    // 🔍 Check last OTP time
+ 
     const { data } = await supabase
       .from('otp_tokens')
       .select('created_at')
@@ -191,14 +201,21 @@ router.post('/resend', async (req, res) => {
 
       if (diff < 60) {
         return res.status(429).json({
-          error: `Wait ${Math.ceil(60 - diff)}s before requesting new OTP`
+          error: `Wait ${Math.ceil(60 - diff)}s before retry`
         });
       }
     }
 
-    await sendOTPEmail(email, otpPurpose);
+    console.log("🔁 Resending OTP to:", email);
 
-    res.json({
+    try {
+      await sendOTPEmail(email, otpPurpose);
+    } catch (err) {
+      console.error("❌ RESEND ERROR:", err.message);
+      return res.status(500).json({ error: 'Failed to resend OTP' });
+    }
+
+    return res.json({
       success: true,
       message: 'OTP resent'
     });
@@ -212,7 +229,7 @@ router.post('/resend', async (req, res) => {
 
 
 // ============================================================
-// FORGOT PASSWORD (same)
+// FORGOT PASSWORD
 // ============================================================
 
 router.post('/forgot-password', async (req, res) => {
@@ -238,9 +255,10 @@ router.post('/forgot-password', async (req, res) => {
         expires_at: new Date(Date.now() + 3600000)
       }]);
 
-    res.json({ success: true });
+    return res.json({ success: true });
 
   } catch (error) {
+    console.error('[FORGOT ERROR]', error);
     res.status(500).json({ error: error.message });
   }
 });
