@@ -90,7 +90,7 @@ async function verifyOTP(email, token, purpose, consume = true) {
     const { data, error } = await supabase
         .from('otp_tokens')
         .select('*')
-        .eq('target', email)
+        .eq('email', email)
         .eq('purpose', purpose)
         .eq('used', false)
         .order('created_at', { ascending: false })
