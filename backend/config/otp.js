@@ -94,13 +94,43 @@ async function verifyOTP(email, token, purpose, consume = true) {
         .eq('purpose', purpose)
         .eq('used', false)
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(1)
+        .single(); // 👈 important
 
-    if (error || !data.length) {
+    if (error || !data) {
         return { ok: false, error: 'OTP not found' };
     }
 
-    const row = data[0];
+    // ✅ Check attempts
+    if (data.attempts >= MAX_ATTEMPTS) {
+        return { ok: false, error: 'Too many attempts' };
+    }
+
+    // ✅ Check expiry
+    if (new Date(data.expires_at) < new Date()) {
+        return { ok: false, error: 'OTP expired' };
+    }
+
+    // ✅ Check OTP match
+    if (data.token_hash !== hash) {
+        await supabase
+            .from('otp_tokens')
+            .update({ attempts: data.attempts + 1 })
+            .eq('id', data.id);
+
+        return { ok: false, error: 'Invalid OTP' };
+    }
+
+    // ✅ Mark as used
+    if (consume) {
+        await supabase
+            .from('otp_tokens')
+            .update({ used: true })
+            .eq('id', data.id);
+    }
+
+    return { ok: true };
+}
 
     // Check max attempts
     if (row.attempts >= MAX_ATTEMPTS) {
@@ -129,7 +159,6 @@ async function verifyOTP(email, token, purpose, consume = true) {
     }
 
     return { ok: true };
-}
 
 
 // ============================================================
