@@ -60,128 +60,128 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/coupons', require('./routes/coupons'));
 
-// ── TEST ENDPOINT (dev only)
-if (process.env.NODE_ENV !== 'production') {
-  const db = require('./config/db');
+// // ── TEST ENDPOINT (dev only)
+// if (process.env.NODE_ENV !== 'production') {
+//   const db = require('./config/db');
 
-  app.get('/api/test/last-otp/:email/:purpose', async (req, res) => {
-    try {
-      const { email, purpose } = req.params;
+//   app.get('/api/test/last-otp/:email/:purpose', async (req, res) => {
+//     try {
+//       const { email, purpose } = req.params;
 
-      const [rows] = await db.execute(
-        `SELECT id, token, used FROM otp_tokens WHERE target=? AND purpose=? ORDER BY created_at DESC LIMIT 1`,
-        [email, purpose]
-      );
+//       const [rows] = await db.execute(
+//         `SELECT id, token, used FROM otp_tokens WHERE target=? AND purpose=? ORDER BY created_at DESC LIMIT 1`,
+//         [email, purpose]
+//       );
 
-      if (!rows.length) return res.status(404).json({ error: 'No OTP found' });
+//       if (!rows.length) return res.status(404).json({ error: 'No OTP found' });
 
-      const row = rows[0];
+//       const row = rows[0];
 
-      if (row.used) return res.status(400).json({ error: 'OTP already used' });
+//       if (row.used) return res.status(400).json({ error: 'OTP already used' });
 
-      res.json({ otp_hash: row.token, id: row.id });
+//       res.json({ otp_hash: row.token, id: row.id });
 
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-}
+//     } catch (e) {
+//       res.status(500).json({ error: e.message });
+//     }
+//   });
+// }
 
-// ── Health check
-app.get('/health', (_, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString()
-  });
-});
+// // ── Health check
+// app.get('/health', (_, res) => {
+//   res.json({
+//     status: 'ok',
+//     timestamp: new Date().toISOString()
+//   });
+// });
 
-// ── Diagnostic endpoint
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    port: PORT,
-    corsOrigins: corsOriginsList.join(', '),
-    requestOrigin: req.headers.origin,
-  });
-});
+// // ── Diagnostic endpoint
+// app.get('/api/health', (req, res) => {
+//   res.json({
+//     status: 'ok',
+//     timestamp: new Date().toISOString(),
+//     environment: process.env.NODE_ENV || 'development',
+//     port: PORT,
+//     corsOrigins: corsOriginsList.join(', '),
+//     requestOrigin: req.headers.origin,
+//   });
+// });
 
-app.get("/api/test/db", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .limit(1);
+// app.get("/api/test/db", async (req, res) => {
+//   try {
+//     const { data, error } = await supabase
+//       .from("users")
+//       .select("*")
+//       .limit(1);
 
-    if (error) throw error;
+//     if (error) throw error;
 
-    res.json({ success: true, connected: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message, connected: false });
-  }
-});
+//     res.json({ success: true, connected: true });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message, connected: false });
+//   }
+// });
 
-// ── Email test endpoint (Resend)
-app.get("/api/test/email", async (req, res) => {
-  try {
-    const { Resend } = require('resend');
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    if (!process.env.RESEND_API_KEY) {
-      return res.status(500).json({ error: 'RESEND_API_KEY not configured', connected: false });
-    }
-    await resend.emails.send({
-      from: 'onboarding@resend.dev',
-      to: process.env.EMAIL_USER,
-      subject: 'Test Email',
-      html: '<p>Test successful!</p>'
-    });
-    res.json({ success: true, provider: 'resend', connected: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message, connected: false });
-  }
-});
+// // ── Email test endpoint (Resend)
+// app.get("/api/test/email", async (req, res) => {
+//   try {
+//     const { Resend } = require('resend');
+//     const resend = new Resend(process.env.RESEND_API_KEY);
+//     if (!process.env.RESEND_API_KEY) {
+//       return res.status(500).json({ error: 'RESEND_API_KEY not configured', connected: false });
+//     }
+//     await resend.emails.send({
+//       from: 'onboarding@resend.dev',
+//       to: process.env.EMAIL_USER,
+//       subject: 'Test Email',
+//       html: '<p>Test successful!</p>'
+//     });
+//     res.json({ success: true, provider: 'resend', connected: true });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message, connected: false });
+//   }
+// });
 
-// ── Connection status (all checks)
-app.get("/api/test/status", async (req, res) => {
-  const status = {
-    server: 'ok',
-    timestamp: new Date().toISOString(),
-    supabase: { connected: false },
-    email: {
-  connected: !!process.env.RESEND_API_KEY,
-  configured: !!process.env.RESEND_API_KEY
-           },
-    resend: { configured: !!process.env.RESEND_API_KEY }
-  };
+// // ── Connection status (all checks)
+// app.get("/api/test/status", async (req, res) => {
+//   const status = {
+//     server: 'ok',
+//     timestamp: new Date().toISOString(),
+//     supabase: { connected: false },
+//     email: {
+//   connected: !!process.env.RESEND_API_KEY,
+//   configured: !!process.env.RESEND_API_KEY
+//            },
+//     resend: { configured: !!process.env.RESEND_API_KEY }
+//   };
 
-  // Check Supabase
-  try {
-    const { error } = await supabase.from("users").select("id").limit(1);
-    status.supabase = { connected: !error, error: error?.message };
-  } catch (err) {
-    status.supabase = { connected: false, error: err.message };
-  }
+//   // Check Supabase
+//   try {
+//     const { error } = await supabase.from("users").select("id").limit(1);
+//     status.supabase = { connected: !error, error: error?.message };
+//   } catch (err) {
+//     status.supabase = { connected: false, error: err.message };
+//   }
 
-  // Check Resend config
-  if (process.env.RESEND_API_KEY) {
-    status.resend.configured = true;
-  }
+//   // Check Resend config
+//   if (process.env.RESEND_API_KEY) {
+//     status.resend.configured = true;
+//   }
 
-  res.json(status);
-});
+//   res.json(status);
+// });
 
-// ── TEST: Create OTP directly (for debugging)
-app.post("/api/test/create-otp", async (req, res) => {
-  try {
-    const { email, purpose } = req.body;
-    const { sendOTPEmail } = require('./config/otp');
-    const result = await sendOTPEmail(email || 'test@example.com', purpose || 'login');
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// // ── TEST: Create OTP directly (for debugging)
+// app.post("/api/test/create-otp", async (req, res) => {
+//   try {
+//     const { email, purpose } = req.body;
+//     const { sendOTPEmail } = require('./config/otp');
+//     const result = await sendOTPEmail(email || 'test@example.com', purpose || 'login');
+//     res.json(result);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 // ── 404 handler
 app.use((_, res) => {
