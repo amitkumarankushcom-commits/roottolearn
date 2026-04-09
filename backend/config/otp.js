@@ -3,8 +3,8 @@
 // ============================================================
 
 const crypto = require('crypto');
-const { Resend } = require('resend');
-const supabase = require('./supabase');
+const { Resend } = require('resend'); 
+const supabase = require('supabase');
 
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
