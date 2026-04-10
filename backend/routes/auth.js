@@ -148,6 +148,7 @@ router.post('/login/verify', async (req, res) => {
       .eq('email', email)
       .single();
 
+    console.log('[VERIFY OTP] user lookup:', email, error, user);
     if (error || !user) {
       return res.status(500).json({ error: 'User not found' });
     }

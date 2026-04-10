@@ -108,19 +108,21 @@ async function doLogin() {
 
     // ❌ HANDLE ERROR FIRST
     if (data.error) {
+      console.log("LOGIN ERROR:", data.error);
       showErr('loginErr', data.error);
       return;
     }
 
     // ✅ OTP FLOW
     if (data.step === 'verify') {
+      localStorage.setItem('login_email', userEmail);
       goStep(2);
       initOTP();
       startTimer(600);
 
       document.getElementById('otpInfo').innerHTML =
         `Code sent to <strong style="color:var(--accent)">
-        ${userEmail.replace(/(.{2}).+(@.+)/,'$1***$2')}
+        ${(userEmail || localStorage.getItem('login_email') || '').replace(/(.{2}).+(@.+)/,'$1***$2')}
         </strong>`;
       return;
     }
@@ -140,9 +142,17 @@ async function verifyOTP() {
   if (otp.length<6) { showErr('otpErr','Enter all 6 digits.'); return; }
   if (!/^\d{6}$/.test(otp)) { showErr('otpErr','OTP must be exactly 6 digits.'); return; }
   setLoad('otpBtn', true);
-  console.log('Sending OTP verification:', { email: userEmail, otp, otpLength: otp.length });
+  // Prefer userEmail var, fall back to localStorage, then prompt to re-login
+  const emailToVerify = userEmail || localStorage.getItem('login_email') || '';
+  if (!emailToVerify) {
+    showErr('otpErr', 'Session expired. Please login again.');
+    setTimeout(() => { goStep(1); }, 1500);
+    setLoad('otpBtn', false);
+    return;
+  }
+  console.log('Sending OTP verification:', { email: emailToVerify, otp, otpLength: otp.length });
   try {
-    const res = await auth.loginVerify({ email:userEmail, otp });
+    const res = await auth.loginVerify({ email:emailToVerify, otp });
     const data = await res.json();
     if (!res.ok) {
       if (data.error && (data.error.includes('expired') || data.error.includes('OTP not found'))) {
@@ -166,8 +176,9 @@ async function verifyOTP() {
 }
 
 async function resend() {
+  const emailToResend = userEmail || localStorage.getItem('login_email') || '';
   try {
-    await auth.resendOTP({ email:userEmail, purpose:'login' });
+    await auth.resendOTP({ email:emailToResend, purpose:'login' });
     [...document.querySelectorAll('.otp-d')].forEach(b=>b.value='');
     [...document.querySelectorAll('.otp-d')][0].focus();
     startTimer(600);
