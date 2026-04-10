@@ -144,9 +144,13 @@ async function verifyOTP() {
   try {
     const res = await auth.loginVerify({ email:userEmail, otp });
     const data = await res.json();
-    if (!res.ok) { 
-      if (data.error && data.error.includes('expired')) {
-        showErr('otpErr', 'OTP expired. Click "Resend OTP" to get a new one.');
+    if (!res.ok) {
+      if (data.error && (data.error.includes('expired') || data.error.includes('OTP not found'))) {
+        showErr('otpErr', data.error.includes('OTP not found') ? 'OTP not found. Please login again.' : 'OTP expired. Click "Resend OTP" to get a new one.');
+        if (data.error.includes('OTP not found')) {
+          clearInterval(timerInt);
+          setTimeout(() => { goStep(1); }, 1500);
+        }
       } else {
         showErr('otpErr', data.error||'Invalid OTP.');
       }
