@@ -84,10 +84,16 @@ async function verifyOTP(email, token, purpose, consume = true) {
         .select('*')
         .eq('target', email)
         .eq('purpose', purpose)
+<<<<<<< HEAD
         .eq('used', false) // Only look at unused OTPs
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(); // Use maybeSingle to avoid error on multiple rows
+=======
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single(); // ✅ important
+>>>>>>> 70bb498 (otp check)
 
     console.log("🔍 DB RESULT:", data, error);
 
