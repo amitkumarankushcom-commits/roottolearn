@@ -1,14 +1,13 @@
 // ============================================================
-// OTP SYSTEM (Supabase + Resend API)
+// OTP SYSTEM (Supabase + Resend API) - FIXED VERSION
 // ============================================================
 
 const crypto = require('crypto');
-const { Resend } = require('resend'); 
+const { Resend } = require('resend');
 const supabase = require('./supabase');
 
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
-
 
 // ============================================================
 // HASH OTP
@@ -17,7 +16,6 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 function hashOTP(token) {
     return crypto.createHash('sha256').update(token).digest('hex');
 }
-
 
 // ============================================================
 // GENERATE OTP (6-digit)
@@ -28,36 +26,28 @@ function generateOTP() {
     return Array.from(bytes).map(b => b % 10).join('');
 }
 
-
 // ============================================================
-// CREATE OTP (Supabase)
+// CREATE OTP
 // ============================================================
 
 async function createOTP(email, purpose) {
-    console.log("🔥 Creating OTP for:", email, "purpose:", purpose);
+    console.log("🔥 Creating OTP for:", email);
 
     const token = generateOTP();
     const hash = hashOTP(token);
-    console.log("🔥 OTP hash:", hash);
 
     const expiryMin = Number(process.env.OTP_EXPIRY_MINUTES) || 15;
     const expiresAt = new Date(Date.now() + expiryMin * 60 * 1000);
 
-    console.log("🔥 Deleting old OTPs for:", email);
     // Delete old OTPs
-    const { error: deleteError } = await supabase
+    await supabase
         .from('otp_tokens')
         .delete()
         .eq('target', email)
         .eq('purpose', purpose);
 
-    if (deleteError) {
-        console.error("❌ OTP Delete Error:", deleteError.message);
-    }
-
-    console.log("🔥 Inserting new OTP for:", email);
     // Insert new OTP
-    const { error: insertError } = await supabase
+    const { error } = await supabase
         .from('otp_tokens')
         .insert([{
             target: email,
@@ -65,19 +55,19 @@ async function createOTP(email, purpose) {
             purpose,
             expires_at: expiresAt,
             attempts: 0,
-            used: false
+            used: false,
+            created_at: new Date().toISOString() // ✅ important
         }]);
 
-    if (insertError) {
-        console.error("❌ OTP Insert Error:", insertError.message);
-        throw insertError;
+    if (error) {
+        console.error("❌ OTP Insert Error:", error.message);
+        throw new Error("OTP creation failed");
     }
 
-    console.log("✅ OTP stored in DB");
+    console.log("✅ OTP stored");
 
     return token;
 }
-
 
 // ============================================================
 // VERIFY OTP
@@ -87,50 +77,63 @@ async function verifyOTP(email, token, purpose, consume = true) {
     const MAX_ATTEMPTS = 5;
     const hash = hashOTP(token);
 
+    console.log("🔍 VERIFY:", { email, purpose });
+
     const { data, error } = await supabase
         .from('otp_tokens')
         .select('*')
         .eq('target', email)
         .eq('purpose', purpose)
-        .eq('used', false)
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(1)
+        .single(); // ✅ important
 
-    if (error || !data.length) {
+    console.log("🔍 DB RESULT:", data, error);
+
+    if (error || !data) {
         return { ok: false, error: 'OTP not found' };
     }
 
-    const row = data[0];
-
-    // Check max attempts
-    if (row.attempts >= MAX_ATTEMPTS) {
-        await supabase.from('otp_tokens').update({ used: true }).eq('id', row.id);
-        return { ok: false, error: 'Too many attempts. Request a new OTP.' };
+    // ❌ Already used
+    if (data.used) {
+        return { ok: false, error: 'OTP already used' };
     }
 
-    if (new Date(row.expires_at).getTime() < Date.now()) {
+    // ❌ Too many attempts
+    if (data.attempts >= MAX_ATTEMPTS) {
+        await supabase
+            .from('otp_tokens')
+            .update({ used: true })
+            .eq('id', data.id);
+
+        return { ok: false, error: 'Too many attempts' };
+    }
+
+    // ❌ Expired
+    if (new Date(data.expires_at) < new Date()) {
         return { ok: false, error: 'OTP expired' };
     }
 
-    if (row.token !== hash) {
+    // ❌ Wrong OTP
+    if (data.token !== hash) {
         await supabase
             .from('otp_tokens')
-            .update({ attempts: row.attempts + 1 })
-            .eq('id', row.id);
+            .update({ attempts: data.attempts + 1 })
+            .eq('id', data.id);
 
         return { ok: false, error: 'Invalid OTP' };
     }
 
+    // ✅ Mark as used
     if (consume) {
         await supabase
             .from('otp_tokens')
             .update({ used: true })
-            .eq('id', row.id);
+            .eq('id', data.id);
     }
 
     return { ok: true };
 }
-
 
 // ============================================================
 // EMAIL TEMPLATE
@@ -146,46 +149,36 @@ function emailHTML(otp) {
     `;
 }
 
-
 // ============================================================
-// SEND OTP EMAIL (Resend with timeout)
+// SEND OTP EMAIL
 // ============================================================
 
 async function sendOTPEmail(email, purpose) {
     console.log("📧 Sending OTP to:", email);
 
     const otp = await createOTP(email, purpose);
-    console.log("📧 OTP generated (raw):", otp);
-
-    // Create a timeout promise (3 seconds)
-    const timeoutMs = 3000;
-    const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Email request timeout')), timeoutMs);
-    });
 
     try {
-        // Race between email send and timeout
-        const response = await Promise.race([
-            resend.emails.send({
-                from:  'RootToLearn <noreply@roottolearn.com>',
-                to: email,
-                subject: 'Your OTP Code - RootToLearn',
-                html: emailHTML(otp)
-            }),
-            timeoutPromise
-        ]);
+        const response = await resend.emails.send({
+            from: 'RootToLearn <noreply@roottolearn.com>',
+            to: email,
+            subject: 'Your OTP Code',
+            html: emailHTML(otp)
+        });
 
         console.log("✅ Email sent:", response);
-        return { ok: true, id: response?.id || 'unknown' };
+        return { ok: true };
 
     } catch (err) {
-        console.error("❌ Email Error (timeout or failed):", err.message);
-        // OTP is still created in DB, so we return ok but log the error
-        // The user can still verify with the OTP (or request resend)
-        return { ok: true, warning: 'Email may not have been delivered', error: err.message };
+        console.error("❌ Email error:", err.message);
+
+        // OTP still exists in DB
+        return {
+            ok: true,
+            warning: 'Email may not have been delivered'
+        };
     }
 }
-
 
 // ============================================================
 
