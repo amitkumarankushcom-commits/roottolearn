@@ -144,14 +144,14 @@ router.post('/login/verify', async (req, res) => {
       return res.status(400).json({ error: result.error });
     }
 
-    const { data: user, error } = await supabase
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('id, email, name, role')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
-    console.log('[VERIFY OTP] user lookup:', email, error, user);
-    if (error || !user) {
+    console.log('[VERIFY OTP] user lookup:', email, userError, user);
+    if (userError || !user) {
       return res.status(500).json({ error: 'User not found' });
     }
 
@@ -257,14 +257,14 @@ router.post('/verify-email', async (req, res) => {
     console.log('[VERIFY EMAIL] update result:', updateError);
     if (updateError) throw updateError;
 
-    const { data: user } = await supabase
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('id, email, name, role')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
-    console.log('[VERIFY EMAIL] user after update:', user);
-    if (!user) {
+    console.log('[VERIFY EMAIL] user after update:', user, userError);
+    if (userError || !user) {
       return res.status(500).json({ error: 'User not found' });
     }
 
