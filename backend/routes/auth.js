@@ -50,6 +50,7 @@ router.post('/signup', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    console.log('[SIGNUP] inserting user:', { email, name });
     const { error } = await supabase
       .from('users')
       .insert([{
@@ -59,6 +60,7 @@ router.post('/signup', async (req, res) => {
         created_at: new Date().toISOString()
       }]);
 
+    console.log('[SIGNUP] insert result:', error);
     if (error) throw error;
 
     await sendOTPEmail(email, 'signup');
@@ -224,21 +226,35 @@ router.post('/verify-email', async (req, res) => {
   try {
     const { email, otp } = req.body;
 
+    console.log('[VERIFY EMAIL] body:', { email, otp, otpLen: otp?.length });
+
     if (!email || !otp) {
       return res.status(400).json({ error: 'Email and OTP required' });
     }
 
     const result = await verifyOTP(email, otp, 'signup');
 
+    console.log('[VERIFY EMAIL] verifyOTP result:', result);
+
     if (!result.ok) {
       return res.status(400).json({ error: result.error });
     }
+
+    // Check if user exists first
+    const { data: existingUser, error: checkErr } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', email)
+      .maybeSingle();
+
+    console.log('[VERIFY EMAIL] user check:', existingUser, checkErr);
 
     const { error: updateError } = await supabase
       .from('users')
       .update({ is_verified: 1 })
       .eq('email', email);
 
+    console.log('[VERIFY EMAIL] update result:', updateError);
     if (updateError) throw updateError;
 
     const { data: user } = await supabase
@@ -247,6 +263,7 @@ router.post('/verify-email', async (req, res) => {
       .eq('email', email)
       .single();
 
+    console.log('[VERIFY EMAIL] user after update:', user);
     if (!user) {
       return res.status(500).json({ error: 'User not found' });
     }
