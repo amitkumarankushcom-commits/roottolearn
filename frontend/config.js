@@ -13,7 +13,7 @@ window.APP_CONFIG = {
   debug: false,
 
   // API Configuration
-  apiUrl: 'https://roottolearn-backend.onrender.com/api',
+  apiUrl: 'https://roottolearn-api.onrender.com/api',
 
   // Payment Configuration
   razorpay: {
@@ -44,8 +44,7 @@ window.APP_CONFIG = {
  */
 async function loadEnvConfig() {
   try {
-    return; // Disable .env loading for now (uncomment to enable)
-    
+    const response = await fetch('/.env');
     if (!response.ok) {
       if (window.APP_CONFIG.debug) {
         console.warn('[CONFIG] .env file not found - using defaults');

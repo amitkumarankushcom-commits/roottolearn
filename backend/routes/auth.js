@@ -183,7 +183,10 @@ router.post('/resend', async (req, res) => {
   try {
     const { email, purpose } = req.body;
 
+    console.log('[RESEND] Request body:', { email, purpose });
+
     if (!email) {
+      console.log('[RESEND] ERROR: No email provided');
       return res.status(400).json({ error: 'Email required' });
     }
 
@@ -205,10 +208,13 @@ router.post('/resend', async (req, res) => {
     }
 
     const emailResult = await sendOTPEmail(email, otpPurpose);
+    console.log('[RESEND] Email result:', emailResult);
     if (!emailResult.ok) {
+      console.log('[RESEND] ERROR: Failed to send email');
       return res.status(500).json({ error: 'Failed to resend OTP' });
     }
 
+    console.log('[RESEND] SUCCESS: OTP resent');
     return res.json({ success: true, message: 'OTP resent' });
 
   } catch (error) {
@@ -520,6 +526,22 @@ router.post('/refresh', async (req, res) => {
   } catch (error) {
     console.error('[REFRESH ERROR]', error.message);
     res.status(500).json({ error: 'Token refresh failed' });
+  }
+});
+
+
+// ============================================================
+// LOGOUT
+// ============================================================
+
+router.post('/logout', async (req, res) => {
+  try {
+    // Clear tokens on client side (server doesn't store tokens)
+    // In a more advanced setup, we'd blacklist the token here
+    return res.json({ success: true, message: 'Logged out' });
+  } catch (error) {
+    console.error('[LOGOUT ERROR]', error.message);
+    res.status(500).json({ error: 'Logout failed' });
   }
 });
 

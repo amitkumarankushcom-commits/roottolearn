@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS otp_tokens (
   id         SERIAL PRIMARY KEY,
   target     VARCHAR(191) NOT NULL,
   token      VARCHAR(64)  NOT NULL,
-  purpose    VARCHAR(20)  NOT NULL CHECK (purpose IN ('signup','login','admin','reset')),
+  purpose    VARCHAR(20)  NOT NULL CHECK (purpose IN ('signup','login','admin','reset','forgot')),
   attempts   SMALLINT     NOT NULL DEFAULT 0,
   expires_at TIMESTAMP    NOT NULL,
   used       SMALLINT     NOT NULL DEFAULT 0,
