@@ -63,21 +63,6 @@
 </div>
 </div>
 
-<!-- Payment Modal -->
-<div class="overlay" id="payOv">
-  <div class="modal">
-    <div class="modal-h"><div class="modal-title">Complete Purchase</div><button class="mcls" onclick="closePay()">×</button></div>
-    <div class="order-sum" id="orderSum"></div>
-    <div style="background:rgba(247,183,49,.08);border:1px solid rgba(247,183,49,.2);border-radius:10px;padding:12px 14px;font-size:.8rem;color:var(--muted);margin-bottom:1rem">
-      Pay using GPay, PhonePe, Paytm, BHIM, or any UPI app.
-    </div>
-    <div class="fg"><label class="flabel">UPI ID <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-      <input class="finput" id="upiId" type="text" placeholder="yourname@upi">
-    </div>
-    <button class="pay-btn" id="upiPayBtn" onclick="processUpiPay()">📱 Pay via UPI</button>
-  </div>
-</div>
-
 <div class="toast" id="toast"><span id="tIcon">✅</span><span class="toast-txt" id="tTxt">Done!</span></div>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="/config.js"></script>
@@ -130,13 +115,7 @@ function updatePrices(){
   document.getElementById('pprice').innerHTML=discount>0?`₹${Math.round(849*(1-d))}<span>/mo</span> <span style="text-decoration:line-through;font-size:.9rem;color:var(--muted)">₹849</span>`:`₹849<span>/mo</span>`;
   document.getElementById('eprice').innerHTML=discount>0?`₹${Math.round(2499*(1-d))}<span>/mo</span> <span style="text-decoration:line-through;font-size:.9rem;color:var(--muted)">₹2499</span>`:`₹2499<span>/mo</span>`;
 }
-function openPay(plan,price){curPay={plan,price};renderOrder();document.getElementById('payOv').classList.add('show');}
-function closePay(){document.getElementById('payOv').classList.remove('show');}
-function renderOrder(){
-  const orig=curPay.price,d=discount,total=Math.round(orig*(1-d/100));
-  const discRow=d>0?`<div class="or disc"><span class="lbl">Discount (${d}%)</span><span class="val">−₹${orig-total}</span></div>`:'';
-  document.getElementById('orderSum').innerHTML=`<div class="or"><span class="lbl">${curPay.plan.charAt(0).toUpperCase()+curPay.plan.slice(1)} Plan</span><span class="val">₹${orig}/mo</span></div>${discRow}<div class="or total"><span class="lbl">Total</span><span class="val">₹${total}/mo</span></div>`;
-}
+function openPay(plan,price){if(!isLoggedIn()){location.href='login.html';return;}curPay={plan,price};processUpiPay();}
 function applyPayCpn(){
   const c=document.getElementById('payCpn').value.trim().toUpperCase();
   const msg=document.getElementById('payCpnMsg');
@@ -175,9 +154,10 @@ function applyPayCpn(){
 }
 async function processUpiPay(){
   const btn=document.getElementById('upiPayBtn');
-  btn.textContent='⏳ Loading…'; btn.disabled=true;
-  const upiId=document.getElementById('upiId').value.trim();
-  const cpn=document.getElementById('payCpn').value.trim();
+  if(btn) btn.textContent='⏳ Loading…';
+  if(btn) btn.disabled=true;
+  const upiId=document.getElementById('upiId')?.value.trim() || '';
+  const cpn=document.getElementById('payCpn')?.value.trim() || '';
   const total=Math.round(curPay.price*(1-discount/100));
 
   console.log('[PAYMENT PROCESS] Starting payment:', { plan: curPay.plan, coupon: cpn, total });
@@ -187,16 +167,12 @@ async function processUpiPay(){
     console.log('[PAYMENT PROCESS] Free order - skipping Razorpay');
     if(isLoggedIn()){
       try{
-        // Create order for free plan
         const r=await payments.createOrder(curPay.plan, cpn);
         const d=await r.json();
         console.log('[PAYMENT PROCESS] Free order created:', d);
         if(r.ok){
-          // Payment automatically succeeds for free orders
           toast('🎉', '100% discount applied! Upgrading your plan...');
-          setTimeout(()=>{
-            location.href='app.html';
-          }, 1500);
+          setTimeout(()=>location.href='app.html', 1500);
           return;
         }
       }catch(e){
@@ -204,8 +180,8 @@ async function processUpiPay(){
       }
     }
     toast('❌', 'Error processing free order. Please try again.');
-    btn.textContent='📱 Pay via UPI';
-    btn.disabled=false;
+    if(btn) btn.textContent='📱 Pay via UPI';
+    if(btn) btn.disabled=false;
     return;
   }
 

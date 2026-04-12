@@ -213,29 +213,10 @@
       </div>
     </div>
   </div>
-  <!-- Upgrade / Payment Modal -->
-  <div class="overlay" id="payOv">
-    <div class="modal">
-      <div class="modal-h">
-        <div class="modal-title">Upgrade Plan</div><button class="mcls" onclick="closeUpgrade()">×</button>
-      </div>
-      <!-- Plan selector -->
-      <div class="pay-tabs" style="margin-bottom:.75rem">
-        <button class="ptab active" id="planPro" onclick="selectPlan(this,'pro',849)">Pro — ₹849/mo</button>
-        <button class="ptab" id="planEnt" onclick="selectPlan(this,'enterprise',2499)">Enterprise — ₹2499/mo</button>
-      </div>
-      <div class="order-sum" id="orderSum"></div>
-      <div
-        style="background:rgba(247,183,49,.08);border:1px solid rgba(247,183,49,.2);border-radius:10px;padding:12px 14px;font-size:.8rem;color:var(--muted);margin-bottom:1rem">
-        Pay using GPay, PhonePe, Paytm, BHIM, or any UPI app.
-      </div>
-      <div class="fg"><label class="flabel">UPI ID <span
-            style="color:var(--muted);font-weight:400">(optional)</span></label>
-        <input class="finput" id="upiId" type="text" placeholder="yourname@upi">
-      </div>
-      <button class="pay-btn" id="upiPayBtn" onclick="processUpiPay()">📱 Pay via UPI</button>
-    </div>
-  </div>
+  
+  <!-- Hidden payment inputs for direct payment flow -->
+  <input type="hidden" id="upiId" value="">
+  <input type="hidden" id="payCpn" value="">
 
   <div class="toast" id="toast"><span id="tIcon">OK</span><span class="toast-txt" id="tTxt">Done!</span></div>
   <script src="/assets/js/api.js?v=2"></script>
@@ -380,10 +361,10 @@
 
     function openUpgrade() {
       if (!isLoggedIn()) { location.href = 'login.html'; return; }
-      document.getElementById('payOv').classList.add('show');
-      renderOrder();
+      curPay = { plan: 'pro', price: 849 };
+      processUpiPay();
     }
-    function closeUpgrade() { document.getElementById('payOv').classList.remove('show'); }
+    function closeUpgrade() { }
     function selectPlan(el, plan, price) {
       document.querySelectorAll('#planPro,#planEnt').forEach(b => b.classList.remove('active'));
       el.classList.add('active');
