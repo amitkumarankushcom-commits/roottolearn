@@ -35,66 +35,12 @@ Click the **Run** button (or Ctrl+Enter)
 
 For a fresh or complete database setup:
 
-### Option A: Full Database Rebuild
-If you're starting fresh or want everything in one go:
-
-1. Open **SQL Editor → New Query**
+1. Open **Supabase Dashboard → SQL Editor → New Query**
 2. Copy entire content from `database/schema-complete.sql`
 3. Paste it into the SQL Editor
 4. Click **Run**
 
-### Option B: Add Individual Components
-If you want to add tables incrementally:
-
-```sql
--- Add audit logging tables
-CREATE TABLE IF NOT EXISTS audit_logs (
-  id SERIAL PRIMARY KEY,
-  admin_id INTEGER REFERENCES users(id),
-  action VARCHAR(255) NOT NULL,
-  resource_type VARCHAR(100),
-  resource_id INTEGER,
-  old_values JSONB,
-  new_values JSONB,
-  ip_address VARCHAR(45),
-  user_agent TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Add system settings table
-CREATE TABLE IF NOT EXISTS system_settings (
-  id SERIAL PRIMARY KEY,
-  key VARCHAR(255) UNIQUE NOT NULL,
-  value JSONB,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_by INTEGER REFERENCES users(id)
-);
-
--- Add email templates table
-CREATE TABLE IF NOT EXISTS email_templates (
-  id SERIAL PRIMARY KEY,
-  template_name VARCHAR(100) UNIQUE NOT NULL,
-  subject TEXT NOT NULL,
-  html_content TEXT NOT NULL,
-  text_content TEXT,
-  variables JSONB,
-  active BOOLEAN DEFAULT true,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Add activity logs table
-CREATE TABLE IF NOT EXISTS activity_logs (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id),
-  action VARCHAR(255),
-  resource_type VARCHAR(100),
-  resource_id INTEGER,
-  details JSONB,
-  ip_address VARCHAR(45),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+✅ Done! All tables, indexes, and seed data are created in one go.
 
 ---
 
@@ -102,11 +48,7 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 
 | File | Purpose |
 |------|---------|
-| `database/schema.sql` | Core schema (PostgreSQL) |
-| `database/schema-mysql.sql` | MySQL version (if needed) |
-| `database/schema-complete.sql` | **ALL tables + indexes + seed data (RECOMMENDED)** |
-| `database/migration-2026-04-12-improvements.sql` | Performance improvements |
-| `database/migrate-add-forgot.sql` | OTP forgot password support |
+| `database/schema-complete.sql` | **Single source of truth - All tables + indexes + seed data** |
 
 ---
 
