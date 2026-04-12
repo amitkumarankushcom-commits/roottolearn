@@ -381,7 +381,11 @@
 <div class="toast" id="toast"><span id="tIcon">✅</span><span class="toast-txt" id="tTxt">Done!</span></div>
 
 <script>
-// ── API URL already defined in api.js, using that
+// ── API URL Configuration
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+  ? 'http://localhost:4000/api' 
+  : 'https://roottolearn-backend.onrender.com/api';
+
 const token = localStorage.getItem('siq_admin_token');
 const hdrs = { 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` };
 

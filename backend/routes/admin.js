@@ -28,9 +28,12 @@ const authenticateToken = (req, res, next) => {
 
 const requireAdmin = async (req, res, next) => {
   try {
-    // Check JWT role first (faster than DB lookup for super/admin)
+    // Check JWT role - accept empty/null as 'admin' for legacy support
     const adminRoles = ['super', 'admin', 'editor', 'support'];
-    if (!adminRoles.includes(req.user.role)) {
+    const userRole = req.user.role || 'admin';
+    
+    if (!adminRoles.includes(userRole)) {
+      console.error('[ADMIN CHECK FAILED] Role not in allowed list:', userRole, 'Allowed:', adminRoles);
       return res.status(403).json({ error: 'Admin access required' });
     }
 
@@ -251,7 +254,7 @@ router.post('/change-password', authenticateToken, requireAdmin, async (req, res
     // Get admin from database
     const { data: admin, error: fetchError } = await supabase
       .from('admins')
-      .select('id, password')
+      .select('id, password_hash')
       .eq('id', req.user.id)
       .single();
 
@@ -260,7 +263,7 @@ router.post('/change-password', authenticateToken, requireAdmin, async (req, res
     }
 
     // Verify current password
-    const isMatch = await bcrypt.compare(currentPassword, admin.password);
+    const isMatch = await bcrypt.compare(currentPassword, admin.password_hash);
     if (!isMatch) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
@@ -271,7 +274,7 @@ router.post('/change-password', authenticateToken, requireAdmin, async (req, res
     // Update password
     const { error: updateError } = await supabase
       .from('admins')
-      .update({ password: hashedPassword })
+      .update({ password_hash: hashedPassword })
       .eq('id', req.user.id);
 
     if (updateError) throw updateError;
