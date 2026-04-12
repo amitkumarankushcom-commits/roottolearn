@@ -157,6 +157,11 @@
         </div>
         <div style="font-size:.68rem;color:var(--muted);margin-top:.35rem"><span id="usagePlan">Free plan</span> - <a
             onclick="openUpgrade()" style="cursor:pointer">Upgrade for unlimited</a></div>
+        <div id="limitBanner" style="display:none;margin-top:.6rem;padding:.75rem 1rem;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;align-items:center;gap:.6rem;font-size:.85rem;color:#92400e">
+          <span style="font-size:1.3rem">🔒</span>
+          <div style="flex:1"><strong>Free limit reached!</strong> You've used all 3 free summaries this month.
+            <a onclick="openUpgrade()" style="cursor:pointer;color:#d97706;font-weight:700;text-decoration:underline">Upgrade to Pro →</a></div>
+        </div>
       </div>
     </div>
     <div class="ap">
@@ -241,8 +246,42 @@
     let S = { file: null, style: 'simple', occ: 'student', model: 'claude', result: '' };
     let procInt;
     const u = getUser();
-    if (u && u.name) { const i = u.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2); document.getElementById('navRight').innerHTML = `<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av" onclick="location.href='profile.html'">${i}</div>`; updateUsage(u.plan, parseInt(localStorage.getItem('siq_docs') || '0')); initAds(u.plan); } else { updateUsage('free', 0); initAds('free'); }
-    function updateUsage(plan, used) { const isFree = plan === 'free'; document.getElementById('usageFill').style.width = isFree ? Math.min((used / 3) * 100, 100) + '%' : '0%'; document.getElementById('usageVal').textContent = isFree ? `${used} / 3 docs` : 'Unlimited'; document.getElementById('usagePlan').textContent = plan === 'pro' ? 'Pro plan' : plan === 'enterprise' ? 'Enterprise plan' : 'Free plan'; }
+    if (u && u.name) {
+      const i = u.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+      document.getElementById('navRight').innerHTML = `<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av" onclick="location.href='profile.html'">${i}</div>`;
+      initAds(u.plan);
+      // Fetch real usage count from backend
+      (async () => {
+        try {
+          const r = await apiFetch('/summaries');
+          if (r && r.ok) {
+            const d = await r.json();
+            const now = new Date(); const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const thisMonth = (d.summaries || []).filter(s => new Date(s.created_at) >= monthStart).length;
+            localStorage.setItem('siq_docs', thisMonth);
+            updateUsage(u.plan, thisMonth);
+          } else { updateUsage(u.plan, parseInt(localStorage.getItem('siq_docs') || '0')); }
+        } catch { updateUsage(u.plan, parseInt(localStorage.getItem('siq_docs') || '0')); }
+      })();
+    } else { updateUsage('free', 0); initAds('free'); }
+    function updateUsage(plan, used) {
+      const isFree = plan === 'free';
+      const pct = isFree ? Math.min((used / 3) * 100, 100) : 0;
+      document.getElementById('usageFill').style.width = pct + '%';
+      if (isFree && used >= 3) document.getElementById('usageFill').style.background = '#ef4444';
+      document.getElementById('usageVal').textContent = isFree ? `${used} / 3 docs` : 'Unlimited';
+      document.getElementById('usagePlan').textContent = plan === 'pro' ? 'Pro plan' : plan === 'enterprise' ? 'Enterprise plan' : 'Free plan';
+      const banner = document.getElementById('limitBanner');
+      if (isFree && used >= 3) {
+        banner.style.display = 'flex';
+        document.getElementById('goBtn').disabled = true;
+        document.getElementById('goBtn').title = 'Free limit reached — upgrade to continue';
+      } else {
+        banner.style.display = 'none';
+        document.getElementById('goBtn').disabled = false;
+        document.getElementById('goBtn').title = '';
+      }
+    }
     function ondov(e) { e.preventDefault(); document.getElementById('upZone').classList.add('drag'); }
     function ondlv() { document.getElementById('upZone').classList.remove('drag'); }
     function ondrp(e) { e.preventDefault(); document.getElementById('upZone').classList.remove('drag'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }
