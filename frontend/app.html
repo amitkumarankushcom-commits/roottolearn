@@ -227,6 +227,24 @@
   <input type="hidden" id="payCpn" value="">
 
   <div class="toast" id="toast"><span id="tIcon">OK</span><span class="toast-txt" id="tTxt">Done!</span></div>
+
+  <!-- Limit reached modal with ad -->
+  <div id="limitOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center" onclick="if(event.target===this)closeLimitModal()">
+    <div style="background:var(--surface,#1a1a2e);border:1px solid var(--border,#2a2a4a);border-radius:16px;max-width:420px;width:92%;padding:2rem 1.5rem;text-align:center;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+      <button onclick="closeLimitModal()" style="position:absolute;top:.8rem;right:1rem;background:none;border:none;color:var(--muted,#888);font-size:1.3rem;cursor:pointer">&times;</button>
+      <div style="font-size:2.8rem;margin-bottom:.6rem">🔒</div>
+      <h3 style="margin:0 0 .4rem;font-size:1.2rem;color:var(--text,#fff)">Free Limit Reached</h3>
+      <p style="color:var(--muted,#aaa);font-size:.88rem;margin:0 0 1rem;line-height:1.5">You've used all <strong>3 free summaries</strong> this month.<br>Upgrade to Pro for <strong>unlimited</strong> summaries!</p>
+      <div style="background:var(--surface2,#222);border:1px dashed var(--border,#333);border-radius:10px;padding:.8rem;margin-bottom:1.2rem;min-height:100px;display:flex;align-items:center;justify-content:center">
+        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-2621988340773883" data-ad-slot="auto" data-ad-format="auto" data-full-width-responsive="true"></ins>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.6rem">
+        <button onclick="closeLimitModal();openUpgrade()" style="width:100%;padding:.85rem;background:linear-gradient(135deg,#F7B731,#e6a020);color:#000;font-weight:700;font-size:1rem;border:none;border-radius:10px;cursor:pointer">⚡ Upgrade to Pro — ₹849/mo</button>
+        <button onclick="closeLimitModal()" style="width:100%;padding:.65rem;background:none;border:1px solid var(--border,#333);color:var(--muted,#888);font-size:.82rem;border-radius:8px;cursor:pointer">Maybe later</button>
+      </div>
+      <p style="color:var(--muted,#666);font-size:.72rem;margin:.8rem 0 0">✓ Unlimited summaries &nbsp; ✓ All languages &nbsp; ✓ No ads</p>
+    </div>
+  </div>
   <script src="/assets/js/api.js?v=2"></script>
   <script src="/config.js"></script>
   <script src="/assets/js/ads.js"></script>
@@ -274,12 +292,8 @@
       const banner = document.getElementById('limitBanner');
       if (isFree && used >= 3) {
         banner.style.display = 'flex';
-        document.getElementById('goBtn').disabled = true;
-        document.getElementById('goBtn').title = 'Free limit reached — upgrade to continue';
       } else {
         banner.style.display = 'none';
-        document.getElementById('goBtn').disabled = false;
-        document.getElementById('goBtn').title = '';
       }
     }
     function ondov(e) { e.preventDefault(); document.getElementById('upZone').classList.add('drag'); }
@@ -293,6 +307,11 @@
     function setOcc(el, o) { document.querySelectorAll('.occ').forEach(x => x.classList.remove('sel')); el.classList.add('sel'); S.occ = o; }
     function setModel(el, m) { el.closest('.style-g').querySelectorAll('.sopt').forEach(o => o.classList.remove('sel')); el.classList.add('sel'); S.model = m; }
     async function doSummarize() {
+      // Check free limit before proceeding
+      const curPlan = (getUser()?.plan) || 'free';
+      const docsUsed = parseInt(localStorage.getItem('siq_docs') || '0');
+      if (curPlan === 'free' && docsUsed >= 3) { showLimitModal(); return; }
+
       const langVal = document.getElementById('langSel').value;
       const langLbl = document.getElementById('langSel').options[document.getElementById('langSel').selectedIndex].text;
       const txt = document.getElementById('txtIn').value.trim();
@@ -505,6 +524,14 @@
       processUpiPay();
     }
     function closeUpgrade() { }
+    function showLimitModal() {
+      const ov = document.getElementById('limitOverlay');
+      ov.style.display = 'flex';
+      try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
+    }
+    function closeLimitModal() {
+      document.getElementById('limitOverlay').style.display = 'none';
+    }
     function selectPlan(el, plan, price) {
       document.querySelectorAll('#planPro,#planEnt').forEach(b => b.classList.remove('active'));
       el.classList.add('active');
