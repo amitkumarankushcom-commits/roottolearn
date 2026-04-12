@@ -716,3 +716,68 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ── Handwritten Note Styling */
+.handwritten-note {
+    background: linear-gradient(to bottom, #fffef0 0%, #fffef0 95%, #f0e8d8 100%);
+    border: 2px solid #e8dcc8;
+    border-radius: 8px;
+    padding: 2.5rem 2rem 2rem 2.5rem;
+    margin-bottom: 1.5rem;
+    font-family: 'Caveat', 'Comic Sans MS', cursive, sans-serif;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.5);
+    font-size: 1rem;
+    line-height: 1.8;
+    color: #4a4a4a;
+    background-image:
+      repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 1.5em,
+        #d4c5b9 1.5em,
+        #d4c5b9 1.52em
+      );
+    background-position: 0 2em;
+    padding-left: 3rem;
+}
+
+.handwritten-note::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #d4c5b9;
+    border-right: 1px solid #c8baa8;
+}
+
+.handwritten-header {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    text-decoration: underline;
+    text-decoration-color: #e8b4a8;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+}
+
+.handwritten-body {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 1rem 0;
+}
+
+.handwritten-body .highlight {
+    background: rgba(247, 183, 49, .2);
+    font-weight: bold;
+    padding: 0 2px;
+}
+
+.handwritten-footer {
+    margin-top: 1.5rem;
+    font-size: .85em;
+    color: #999;
+    font-style: italic;
+}
