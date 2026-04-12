@@ -29,44 +29,61 @@ const authenticateToken = (req, res, next) => {
 // ── POST /api/payments/create-order
 router.post('/create-order', authenticateToken, async (req, res) => {
   try {
-    const { amount, courseId, couponCode } = req.body;
+    const { plan, couponCode } = req.body;
 
-    if (!amount || !courseId) {
-      return res.status(400).json({ error: 'Amount and courseId required' });
+    if (!plan) {
+      return res.status(400).json({ error: 'Plan required' });
     }
 
+    // Define plan prices (in INR)
+    const planPrices = {
+      pro: 84900,        // ₹849 = 84900 paise
+      enterprise: 249900 // ₹2499 = 249900 paise
+    };
+
+    if (!planPrices[plan]) {
+      return res.status(400).json({ error: 'Invalid plan' });
+    }
+
+    let finalAmount = planPrices[plan];
+    let couponAppliedCode = null;
+
+    console.log('[CREATE ORDER] Plan:', plan, 'Amount:', finalAmount, 'Coupon:', couponCode);
+
     // Apply coupon if provided
-    let finalAmount = amount;
     if (couponCode) {
-      const { data: coupon } = await supabase
+      const { data: coupon, error: couponError } = await supabase
         .from('coupons')
         .select('*')
-        .eq('code', couponCode)
+        .eq('code', couponCode.toUpperCase())
+        .eq('is_active', 1)
         .single();
 
-      if (coupon && !coupon.expired) {
-        finalAmount = amount - (amount * coupon.discount_percentage / 100);
+      console.log('[CREATE ORDER] Coupon lookup:', { found: !!coupon, error: couponError });
+
+      if (coupon) {
+        // Check expiry
+        if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
+          console.log('[CREATE ORDER] Coupon expired');
+        } else {
+          // Apply discount (discount_pct is percentage)
+          const discountAmount = Math.round(finalAmount * coupon.discount_pct / 100);
+          finalAmount = finalAmount - discountAmount;
+          couponAppliedCode = coupon.code;
+          console.log('[CREATE ORDER] Coupon applied:', coupon.code, 'Discount:', coupon.discount_pct, '%', 'Final:', finalAmount);
+        }
       }
     }
 
-    // Create Razorpay order (or payment provider of choice)
-    const order = {
-      amount: Math.round(finalAmount * 100), // Convert to paise
-      currency: 'INR',
-      receipt: `order_${req.user.id}_${Date.now()}`,
-      description: `Course Purchase - User ${req.user.id}`
-    };
-
-    // Store in database
+    // Create payment record
     const { data: paymentRecord, error } = await supabase
       .from('payments')
       .insert([{
         user_id: req.user.id,
-        course_id: courseId,
-        amount: finalAmount,
+        plan: plan,
+        amount_cents: finalAmount,
         status: 'pending',
-        razorpay_order_id: order.receipt,
-        raw_order: order,
+        coupon_code: couponAppliedCode || null,
         created_at: new Date().toISOString()
       }])
       .select()
@@ -74,11 +91,13 @@ router.post('/create-order', authenticateToken, async (req, res) => {
 
     if (error) throw error;
 
+    console.log('[CREATE ORDER] ✅ Order created:', paymentRecord.id);
+
     res.json({
       success: true,
       orderId: paymentRecord.id,
-      amount: finalAmount,
-      razorpayOrder: order
+      amount: finalAmount / 100, // Return amount in INR
+      key: process.env.RAZORPAY_KEY || 'rzp_test_SYgxg67CSCdmMD'
     });
 
   } catch (error) {
