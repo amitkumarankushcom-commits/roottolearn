@@ -223,6 +223,7 @@ async function processUpiPay(){
         const d=await r.json();
         console.log('[PAYMENT PROCESS] Free order created:', d);
         if(r.ok){
+          if(d.token) setTokens(d.token, sessionStorage.getItem('siq_refresh'));
           toast('🎉', '100% discount applied! Upgrading your plan...');
           setTimeout(()=>location.href='app.html', 1500);
           return;
@@ -270,7 +271,7 @@ async function processUpiPay(){
     key, amount:total*100, currency:'INR',
     name:'RootToLearn', description:curPay.plan.charAt(0).toUpperCase()+curPay.plan.slice(1)+' Plan',
     image:'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23F7B731%22/%3E%3Ctext y=%2224%22 x=%275%22 font-size=%2721%27 font-weight=%27900%27 font-family=%27Arial%27 fill=%27%23000%27%3ER%3C/text%3E%3C/svg%3E',
-    prefill:{email:u?.email||'', vpa:upiId||undefined},
+    prefill:{email:u?.email||''},
     theme:{color:'#F7B731'},
     handler:async function(response){
       closePay();
@@ -286,6 +287,7 @@ async function processUpiPay(){
           });
           const vd=await vr.json();
           if(vr.ok && vd.success){
+            if(vd.token) setTokens(vd.token, sessionStorage.getItem('siq_refresh'));
             toast('🎉',curPay.plan+' plan activated and saved!');
             setTimeout(()=>location.href='app.html',1500);
             return;

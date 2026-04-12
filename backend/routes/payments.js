@@ -114,7 +114,26 @@ router.post('/create-order', authenticateToken, async (req, res) => {
         console.error('[CREATE ORDER] Free order status update error:', updateError);
       }
 
-      console.log('[CREATE ORDER] ✅ Free order created:', paymentRecord.id);
+      // Update user plan for free order
+      await supabase.from('users').update({ plan }).eq('id', req.user.id);
+
+      // Issue new JWT with updated plan
+      const { data: updatedUser } = await supabase
+        .from('users')
+        .select('id, email, name, plan, role')
+        .eq('id', req.user.id)
+        .single();
+
+      let newToken = null;
+      if (updatedUser) {
+        newToken = jwt.sign(
+          { id: updatedUser.id, email: updatedUser.email, name: updatedUser.name || '', plan: updatedUser.plan || plan, role: updatedUser.role || 'user' },
+          process.env.JWT_SECRET,
+          { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+        );
+      }
+
+      console.log('[CREATE ORDER] ✅ Free order created:', paymentRecord.id, 'Plan updated to:', plan);
 
       return res.json({
         success: true,
@@ -122,6 +141,8 @@ router.post('/create-order', authenticateToken, async (req, res) => {
         paymentId: paymentRecord.id,
         orderId: paymentRecord.id,
         amount: 0,
+        plan,
+        token: newToken,
         key: process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY || 'rzp_test_SYtDiHDucmTTq4'
       });
     }
@@ -232,10 +253,41 @@ router.post('/verify', authenticateToken, async (req, res) => {
 
     console.log('[VERIFY PAYMENT] ✅ Payment saved in database:', payment.id);
 
+    // ── Update user plan in users table
+    const newPlan = payment.plan || 'pro';
+    const { error: planError } = await supabase
+      .from('users')
+      .update({ plan: newPlan })
+      .eq('id', req.user.id);
+
+    if (planError) {
+      console.error('[VERIFY PAYMENT] Plan update failed:', planError);
+    } else {
+      console.log('[VERIFY PAYMENT] ✅ User plan updated to:', newPlan);
+    }
+
+    // ── Fetch updated user and issue new JWT
+    const { data: updatedUser } = await supabase
+      .from('users')
+      .select('id, email, name, plan, role')
+      .eq('id', req.user.id)
+      .single();
+
+    let newToken = null;
+    if (updatedUser) {
+      newToken = jwt.sign(
+        { id: updatedUser.id, email: updatedUser.email, name: updatedUser.name || '', plan: updatedUser.plan || newPlan, role: updatedUser.role || 'user' },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+      );
+    }
+
     res.json({
       success: true,
       message: 'Payment verified and saved',
-      payment
+      payment,
+      plan: newPlan,
+      token: newToken
     });
 
   } catch (error) {
