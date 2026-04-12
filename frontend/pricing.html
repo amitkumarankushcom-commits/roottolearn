@@ -188,6 +188,33 @@ async function processUpiPay(){
 
   console.log('[PAYMENT PROCESS] Starting payment:', { plan: curPay.plan, coupon: cpn, total });
 
+  // Check if order is free (0 amount)
+  if(total === 0){
+    console.log('[PAYMENT PROCESS] Free order - skipping Razorpay');
+    if(isLoggedIn()){
+      try{
+        // Create order for free plan
+        const r=await payments.createOrder(curPay.plan, cpn);
+        const d=await r.json();
+        console.log('[PAYMENT PROCESS] Free order created:', d);
+        if(r.ok){
+          // Payment automatically succeeds for free orders
+          toast('🎉', '100% discount applied! Upgrading your plan...');
+          setTimeout(()=>{
+            location.href='app.html';
+          }, 1500);
+          return;
+        }
+      }catch(e){
+        console.error('[PAYMENT PROCESS] Free order error:', e);
+      }
+    }
+    toast('❌', 'Error processing free order. Please try again.');
+    btn.textContent='📱 Pay via UPI';
+    btn.disabled=false;
+    return;
+  }
+
   // Try backend order (needed for plan activation after payment)
   let orderId=null, key=RAZORPAY_KEY;
   if(isLoggedIn()){
