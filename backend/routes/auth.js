@@ -486,33 +486,42 @@ router.post('/admin/login', async (req, res) => {
 
     const { data: admin, error } = await supabase
       .from('admins')
-      .select('id, email, password_hash, role, name')
+      .select('id, email, password_hash, role, name, is_active')
       .eq('email', email)
       .single();
 
+    console.log('[ADMIN LOGIN] Query result:', { admin, error });
+
     if (error || !admin) {
+      console.log('[ADMIN LOGIN] Admin not found:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    if (!admin.is_active) {
-      return res.status(403).json({ error: 'Account disabled' });
+    // Check if account is active (handle both 0/1 and boolean)
+    const isActive = admin.is_active === 1 || admin.is_active === true;
+    if (!isActive) {
+      console.log('[ADMIN LOGIN] Account disabled:', { email, is_active: admin.is_active });
+      return res.status(403).json({ error: 'Account disabled. Contact super admin.' });
     }
 
     const valid = await bcrypt.compare(password, admin.password_hash);
     if (!valid) {
+      console.log('[ADMIN LOGIN] Invalid password for:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const emailResult = await sendOTPEmail(email, 'admin');
     if (!emailResult.ok) {
+      console.log('[ADMIN LOGIN] Failed to send OTP:', emailResult.error);
       return res.status(500).json({ error: 'Failed to send OTP' });
     }
 
+    console.log('[ADMIN LOGIN] OTP sent to:', email);
     return res.json({ step: 'verify', message: 'OTP sent to admin email' });
 
   } catch (error) {
-    console.error('[ADMIN LOGIN ERROR]', error.message);
-    res.status(500).json({ error: 'Admin login failed' });
+    console.error('[ADMIN LOGIN ERROR]', error.message, error.stack);
+    res.status(500).json({ error: 'Admin login failed: ' + error.message });
   }
 });
 
@@ -539,7 +548,7 @@ router.post('/admin/verify', async (req, res) => {
       .from('admins')
       .select('id, email, name, role')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
     if (!admin) {
       return res.status(500).json({ error: 'Admin not found' });
