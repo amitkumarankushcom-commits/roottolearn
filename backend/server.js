@@ -22,11 +22,8 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // ================= CORS (ENHANCED) =================
 const allowedOrigins = [
   'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:8080',
-  'http://127.0.0.1:3000',
+  'https://roottolearn.vercel.app',
   'https://roottolearn.com',
-  'https://www.roottolearn.com',
   'https://roottolearn-backend.onrender.com'
 ];
 
