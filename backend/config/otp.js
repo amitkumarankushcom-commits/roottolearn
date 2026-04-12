@@ -1,44 +1,34 @@
 // ============================================================
-// OTP SYSTEM (Supabase + Resend API) - FIXED VERSION
+// OTP SYSTEM (Supabase + Gmail SMTP via Nodemailer)
 // ============================================================
 
 const crypto = require('crypto');
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 const supabase = require('./supabase');
 
-const resendApiKey = process.env.RESEND_API_KEY;
-const senderEmail = process.env.FROM_EMAIL || process.env.RESEND_FROM || process.env.SMTP_FROM;
-const resendTestSender = 'onboarding@resend.dev';
+// ── Gmail SMTP Configuration ──
+const smtpUser = process.env.EMAIL_USER;
+const smtpPass = process.env.EMAIL_PASS;
+const smtpFrom = process.env.SMTP_FROM || smtpUser;
 
-function resolveSenderEmail() {
-    if (!senderEmail) {
-        return resendTestSender;
+const transporter = (smtpUser && smtpPass) ? nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: Number(process.env.EMAIL_PORT) || 587,
+    secure: false,
+    auth: {
+        user: smtpUser,
+        pass: smtpPass
     }
+}) : null;
 
-    const publicMailboxDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'live.com'];
-    const senderDomain = senderEmail.split('@')[1]?.toLowerCase();
-
-    if (senderDomain && publicMailboxDomains.includes(senderDomain)) {
-        return resendTestSender;
-    }
-
-    return senderEmail;
+// Verify SMTP connection on startup
+if (transporter) {
+    transporter.verify()
+        .then(() => console.log('📧 Gmail SMTP connected ✅'))
+        .catch(err => console.error('📧 Gmail SMTP error:', err.message));
+} else {
+    console.error('📧 SMTP not configured (missing EMAIL_USER or EMAIL_PASS)');
 }
-
-function hasUsableResendKey(apiKey) {
-    return Boolean(
-        apiKey &&
-        apiKey.startsWith('re_') &&
-        apiKey.length > 20 &&
-        !apiKey.includes('123456789') &&
-        !apiKey.includes('xxxxx')
-    );
-}
-
-const resend = hasUsableResendKey(resendApiKey) ? new Resend(resendApiKey) : null;
-console.log('📧 Resend configured:', resend ? 'YES' : 'NO (missing or invalid RESEND_API_KEY)');
-console.log('📧 Sender email:', senderEmail || '(not set)');
-console.log('📧 Resolved sender:', resolveSenderEmail());
 
 async function removeOTP(email, purpose) {
     await supabase
@@ -198,34 +188,23 @@ async function sendOTPEmail(email, purpose) {
     console.log("📧 Sending OTP to:", email);
 
     const otp = await createOTP(email, purpose);
-    const resolvedSender = resolveSenderEmail();
-    const from = `RootToLearn <${resolvedSender}>`;
 
     try {
-        if (!resend) {
-            throw new Error('Resend client not initialized. Check RESEND_API_KEY.');
+        if (!transporter) {
+            throw new Error('SMTP not configured. Set EMAIL_USER and EMAIL_PASS.');
         }
 
-        console.log("📧 Sending from:", from, "to:", email);
-
-        const response = await resend.emails.send({
-            from,
+        const info = await transporter.sendMail({
+            from: `RootToLearn <${smtpFrom}>`,
             to: email,
             subject: 'Your OTP Code',
             html: emailHTML(otp)
         });
 
-        console.log("📧 Resend response:", JSON.stringify(response));
-
-        if (response.error) {
-            throw new Error(response.error.message || JSON.stringify(response.error));
-        }
-
-        console.log("✅ Email sent via Resend, id:", response.data?.id);
+        console.log("✅ Email sent via Gmail SMTP, messageId:", info.messageId);
         return { ok: true };
     } catch (err) {
         console.error("❌ Email error:", err.message);
-        console.error("❌ Full error:", err);
         await removeOTP(email, purpose);
 
         return {
