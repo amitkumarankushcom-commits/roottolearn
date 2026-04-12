@@ -156,11 +156,11 @@
           <div class="usage-fill" id="usageFill" style="width:0%"></div>
         </div>
         <div style="font-size:.68rem;color:var(--muted);margin-top:.35rem"><span id="usagePlan">Free plan</span> - <a
-            onclick="openUpgrade()" style="cursor:pointer">Upgrade for unlimited</a></div>
+            onclick="location.href='pricing.html'" style="cursor:pointer">Upgrade for unlimited</a></div>
         <div id="limitBanner" style="display:none;margin-top:.6rem;padding:.75rem 1rem;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;align-items:center;gap:.6rem;font-size:.85rem;color:#92400e">
           <span style="font-size:1.3rem">🔒</span>
           <div style="flex:1"><strong>Free limit reached!</strong> You've used all 3 free summaries this month.
-            <a onclick="openUpgrade()" style="cursor:pointer;color:#d97706;font-weight:700;text-decoration:underline">Upgrade to Pro →</a></div>
+            <a onclick="location.href='pricing.html'" style="cursor:pointer;color:#d97706;font-weight:700;text-decoration:underline">Upgrade to Pro →</a></div>
         </div>
       </div>
     </div>
@@ -210,7 +210,7 @@
             data-ad-format="auto"
             data-full-width-responsive="true"></ins>
         </div>
-        <div class="upgrade-bar" id="upgradeBar">Remove ads - <a onclick="openUpgrade()" style="cursor:pointer">Upgrade
+        <div class="upgrade-bar" id="upgradeBar">Remove ads - <a onclick="location.href='pricing.html'" style="cursor:pointer">Upgrade
             to Pro ₹849/mo</a></div>
         <div class="res-meta">
           <span class="mi"><strong id="mWords">-</strong> words</span>
@@ -239,7 +239,7 @@
         <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-2621988340773883" data-ad-slot="auto" data-ad-format="auto" data-full-width-responsive="true"></ins>
       </div>
       <div style="display:flex;flex-direction:column;gap:.6rem">
-        <button onclick="closeLimitModal();openUpgrade()" style="width:100%;padding:.85rem;background:linear-gradient(135deg,#F7B731,#e6a020);color:#000;font-weight:700;font-size:1rem;border:none;border-radius:10px;cursor:pointer">⚡ Upgrade to Pro — ₹849/mo</button>
+        <button onclick="location.href='pricing.html'" style="width:100%;padding:.85rem;background:linear-gradient(135deg,#F7B731,#e6a020);color:#000;font-weight:700;font-size:1rem;border:none;border-radius:10px;cursor:pointer">⚡ Upgrade to Pro — ₹849/mo</button>
         <button onclick="closeLimitModal()" style="width:100%;padding:.65rem;background:none;border:1px solid var(--border,#333);color:var(--muted,#888);font-size:.82rem;border-radius:8px;cursor:pointer">Maybe later</button>
       </div>
       <p style="color:var(--muted,#666);font-size:.72rem;margin:.8rem 0 0">✓ Unlimited summaries &nbsp; ✓ All languages &nbsp; ✓ No ads</p>
@@ -342,7 +342,7 @@
         });
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          if (resp.status === 403) { clearInterval(procInt); document.getElementById('resAnim').classList.remove('show'); btn.classList.remove('loading'); btn.disabled = false; toast('⚠️', err.error || 'Free plan limit reached. Upgrade to continue.'); openUpgrade(); return; }
+          if (resp.status === 403) { clearInterval(procInt); document.getElementById('resAnim').classList.remove('show'); btn.classList.remove('loading'); btn.disabled = false; toast('⚠️', err.error || 'Free plan limit reached. Upgrade to continue.'); showLimitModal(); return; }
           throw new Error(err.error || 'Request failed');
         }
         clearInterval(procInt); document.getElementById('resAnim').classList.remove('show');
