@@ -47,7 +47,7 @@
 <script>
 if(!isLoggedIn()){location.href='login.html';}
 const u=getUser();
-if(u){
+if(u && u.name){
   const init=u.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   document.getElementById('profAv').textContent=init;
   document.getElementById('profName').textContent=u.name;
@@ -58,6 +58,8 @@ if(u){
   document.getElementById('ps3').textContent=Math.round(docs*.25)+'h';
   document.getElementById('ps4').textContent=u.plan==='free'?`${3-docs}/3`:'∞';
   document.getElementById('navRight').innerHTML=`<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av">${init}</div>`;
+} else {
+  console.warn('[PROFILE] User logged in but data missing:', u);
 }
 const hist=JSON.parse(localStorage.getItem('siq_hist')||'[]');
 const icons={pdf:'📄',ppt:'📊',pptx:'📊',mp3:'🎵',wav:'🎵',m4a:'🎵',text:'📝'};
