@@ -90,7 +90,8 @@
     if (localStorage.getItem('siq_admin_token')) {
       try {
         const p = JSON.parse(atob(localStorage.getItem('siq_admin_token').split('.')[1]));
-        if (p.role === 'admin' && p.exp * 1000 > Date.now()) location.href = 'admin-dashboard.html';
+        // Accept both 'admin' and 'super' roles
+        if (['admin','super','editor','support'].includes(p.role) && p.exp * 1000 > Date.now()) location.href = 'admin-dashboard.html';
       } catch { }
     }
 

@@ -17,7 +17,8 @@
   if(!token){location.href='admin-login.html';return;}
   try{
     const p=JSON.parse(atob(token.split('.')[1]));
-    if(p.role!=='admin'||p.exp*1000<Date.now()){
+    // Accept both 'admin' and 'super' roles for admin dashboard
+    if(!['admin','super','editor','support'].includes(p.role)||p.exp*1000<Date.now()){
       localStorage.removeItem('siq_admin_token');
       location.href='admin-login.html';
     }
