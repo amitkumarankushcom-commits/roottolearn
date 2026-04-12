@@ -13,8 +13,16 @@ const { sendOTPEmail, verifyOTP } = require('../config/otp');
 const OTP_MAX_ATTEMPTS = 5;
 
 const generateToken = (userId, email, name = '', plan = 'free', role = 'user') => {
+  const payload = { 
+    id: userId, 
+    email, 
+    name: name || '',
+    plan: plan || 'free',
+    role: role || 'user'
+  };
+  console.log('[GENERATE TOKEN] Payload:', payload);
   return jwt.sign(
-    { id: userId, email, name, plan, role },
+    payload,
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
   );
@@ -197,7 +205,14 @@ router.post('/login/verify', async (req, res) => {
       return res.status(400).json({ error: 'User not found after OTP verification' });
     }
 
-    const token = generateToken(user.id, user.email, user.name, user.plan || 'free', user.role || 'user');
+    // Ensure user has name and plan (set defaults if missing/null)
+    const userName = user.name && user.name.trim() ? user.name : email.split('@')[0];
+    const userPlan = user.plan && user.plan.trim() ? user.plan : 'free';
+    const userRole = user.role ? user.role : 'user';
+
+    console.log('[VERIFY OTP] Token data:', { userName, userPlan, userRole, originalUser: user });
+
+    const token = generateToken(user.id, user.email, userName, userPlan, userRole);
 
     return res.json({
       success: true,
@@ -205,9 +220,9 @@ router.post('/login/verify', async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
-        plan: user.plan || 'free',
-        role: user.role || 'user'
+        name: userName,
+        plan: userPlan,
+        role: userRole
       }
     });
 
@@ -317,7 +332,14 @@ router.post('/verify-email', async (req, res) => {
       return res.status(500).json({ error: 'User not found' });
     }
 
-    const token = generateToken(user.id, user.email, user.name, user.plan || 'free', user.role || 'user');
+    // Ensure user has name and plan (set defaults if missing/null)
+    const userName = user.name && user.name.trim() ? user.name : email.split('@')[0];
+    const userPlan = user.plan && user.plan.trim() ? user.plan : 'free';
+    const userRole = user.role ? user.role : 'user';
+
+    console.log('[VERIFY EMAIL] Token data:', { userName, userPlan, userRole, originalUser: user });
+
+    const token = generateToken(user.id, user.email, userName, userPlan, userRole);
 
     return res.json({
       success: true,
