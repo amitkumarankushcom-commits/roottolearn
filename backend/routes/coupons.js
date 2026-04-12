@@ -25,6 +25,15 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// ── Middleware: Check admin role
+const requireAdmin = (req, res, next) => {
+  const adminRoles = ['super', 'admin', 'editor', 'support'];
+  if (!adminRoles.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
+
 // ── POST /api/coupons/validate
 router.post('/validate', authenticateToken, async (req, res) => {
   try {
@@ -110,6 +119,115 @@ router.post('/apply', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('[APPLY COUPON ERROR]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── GET /api/coupons (Admin only)
+router.get('/', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { data: coupons, error } = await supabase
+      .from('coupons')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ success: true, coupons: coupons || [] });
+
+  } catch (error) {
+    console.error('[GET COUPONS ERROR]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── POST /api/coupons (Admin only)
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { code, discount_pct, max_uses } = req.body;
+
+    if (!code || !discount_pct) {
+      return res.status(400).json({ error: 'Code and discount required' });
+    }
+
+    if (discount_pct < 1 || discount_pct > 100) {
+      return res.status(400).json({ error: 'Discount must be 1-100%' });
+    }
+
+    const { data: coupon, error } = await supabase
+      .from('coupons')
+      .insert([{
+        code: code.toUpperCase(),
+        discount_percentage: discount_pct,
+        discount_pct: discount_pct,
+        max_uses: max_uses || 9999,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, coupon });
+
+  } catch (error) {
+    console.error('[CREATE COUPON ERROR]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── PATCH /api/coupons/:id/toggle (Admin only)
+router.patch('/:id/toggle', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get current coupon
+    const { data: coupon, error: fetchError } = await supabase
+      .from('coupons')
+      .select('is_active')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !coupon) {
+      return res.status(404).json({ error: 'Coupon not found' });
+    }
+
+    // Toggle status
+    const { data: updated, error } = await supabase
+      .from('coupons')
+      .update({ is_active: !coupon.is_active })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, coupon: updated });
+
+  } catch (error) {
+    console.error('[TOGGLE COUPON ERROR]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── DELETE /api/coupons/:id (Admin only)
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('coupons')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Coupon deleted' });
+
+  } catch (error) {
+    console.error('[DELETE COUPON ERROR]', error);
     res.status(500).json({ error: error.message });
   }
 });
