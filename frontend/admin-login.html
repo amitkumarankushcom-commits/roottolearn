@@ -87,12 +87,21 @@
 
   <script>
     // Redirect if already admin
-    if (localStorage.getItem('siq_admin_token')) {
+    const existingToken = localStorage.getItem('siq_admin_token');
+    if (existingToken) {
       try {
-        const p = JSON.parse(atob(localStorage.getItem('siq_admin_token').split('.')[1]));
+        const p = JSON.parse(atob(existingToken.split('.')[1]));
+        console.log('[ADMIN LOGIN] Existing token found:', { role: p.role, exp: new Date(p.exp * 1000) });
         // Accept both 'admin' and 'super' roles
-        if (['admin','super','editor','support'].includes(p.role) && p.exp * 1000 > Date.now()) location.href = 'admin-dashboard.html';
-      } catch { }
+        if (['admin','super','editor','support'].includes(p.role) && p.exp * 1000 > Date.now()) {
+          console.log('[ADMIN LOGIN] ✅ Valid existing token, redirecting to dashboard');
+          location.href = 'admin-dashboard.html';
+        } else {
+          console.log('[ADMIN LOGIN] ❌ Existing token invalid or expired');
+        }
+      } catch (e) {
+        console.error('[ADMIN LOGIN] Error parsing existing token:', e.message);
+      }
     }
 
     let aEmail = '', otpTimer;
@@ -133,24 +142,41 @@
       if (otp.length < 6) { showMsg('otpMsg', 'Enter all 6 digits.', 'err'); return; }
       setLoad('otpBtn', true);
       fetch(API + '/auth/admin/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: aEmail, otp }) })
-        .then(r => r.json())
+        .then(r => {
+          console.log('[ADMIN VERIFY] Status:', r.status);
+          return r.json();
+        })
         .then(data => {
+          console.log('[ADMIN VERIFY] Response:', data);
           if (data.error) { showMsg('otpMsg', data.error, 'err'); return; }
+          if (!data.access) { showMsg('otpMsg', 'No token in response', 'err'); console.error('[ADMIN VERIFY] Missing access token:', data); return; }
+          
+          console.log('[ADMIN VERIFY] ✅ Success! Token:', data.access.slice(0, 20) + '...', 'Admin:', data.admin);
           localStorage.setItem('siq_admin_token', data.access);
           localStorage.setItem('siq_admin_user', JSON.stringify(data.admin));
-          clearInterval(otpTimer); goStep(3);
+          clearInterval(otpTimer); 
+          goStep(3);
           setTimeout(() => document.getElementById('progFill').style.width = '100%', 100);
-          setTimeout(() => location.href = 'admin-dashboard.html', 2700);
+          setTimeout(() => {
+            console.log('[ADMIN LOGIN] Redirecting to admin-dashboard.html');
+            location.href = 'admin-dashboard.html';
+          }, 2700);
         })
-        .catch(() => {
+        .catch(e => {
+          console.error('[ADMIN VERIFY] Fetch error:', e);
           // Demo mode: accept 123456
           if (otp === '123456') {
-            const mockToken = 'eyJhbGciOiJIUzI1NiJ9.' + btoa(JSON.stringify({ sub: 1, name: 'Super Admin', email: aEmail, role: 'admin', adminRole: 'super', exp: Math.floor(Date.now() / 1000) + 28800 })) + '.demo';
+            const mockToken = 'eyJhbGciOiJIUzI1NiJ9.' + btoa(JSON.stringify({ sub: 1, name: 'Super Admin', email: aEmail, role: 'super', adminRole: 'super', exp: Math.floor(Date.now() / 1000) + 28800 })) + '.demo';
+            console.log('[ADMIN VERIFY] Using demo token (OTP=123456)');
             localStorage.setItem('siq_admin_token', mockToken);
             localStorage.setItem('siq_admin_user', JSON.stringify({ name: 'Super Admin', email: aEmail, adminRole: 'super' }));
-            clearInterval(otpTimer); goStep(3);
+            clearInterval(otpTimer); 
+            goStep(3);
             setTimeout(() => document.getElementById('progFill').style.width = '100%', 100);
-            setTimeout(() => location.href = 'admin-dashboard.html', 2700);
+            setTimeout(() => {
+              console.log('[ADMIN LOGIN] Redirecting to admin-dashboard.html (demo)');
+              location.href = 'admin-dashboard.html';
+            }, 2700);
           } else { showMsg('otpMsg', 'Wrong OTP. Try 123456 (demo mode).', 'err'); }
         })
         .finally(() => setLoad('otpBtn', false));

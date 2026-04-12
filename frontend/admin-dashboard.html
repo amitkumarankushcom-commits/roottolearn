@@ -14,15 +14,42 @@
 <script>
 (function(){
   const token=localStorage.getItem('siq_admin_token');
-  if(!token){location.href='admin-login.html';return;}
+  if(!token){
+    console.warn('❌ No admin token found');
+    location.href='admin-login.html';
+    return;
+  }
   try{
-    const p=JSON.parse(atob(token.split('.')[1]));
-    // Accept both 'admin' and 'super' roles for admin dashboard
-    if(!['admin','super','editor','support'].includes(p.role)||p.exp*1000<Date.now()){
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      throw new Error('Invalid JWT format: expected 3 parts, got ' + parts.length);
+    }
+    const p=JSON.parse(atob(parts[1]));
+    console.log('✅ Admin token parsed:', { role: p.role, exp: new Date(p.exp * 1000), now: new Date() });
+    
+    // Check role
+    const allowedRoles = ['admin','super','editor','support'];
+    if(!allowedRoles.includes(p.role)){
+      console.error('❌ Invalid admin role:', p.role, '- Allowed:', allowedRoles);
       localStorage.removeItem('siq_admin_token');
       location.href='admin-login.html';
+      return;
     }
-  }catch{location.href='admin-login.html';}
+    
+    // Check expiration
+    if(p.exp * 1000 < Date.now()){
+      console.error('❌ Token expired at:', new Date(p.exp * 1000));
+      localStorage.removeItem('siq_admin_token');
+      location.href='admin-login.html';
+      return;
+    }
+    
+    console.log('✅ Admin token valid, loading dashboard');
+  }catch(e){
+    console.error('❌ Guard check error:', e.message);
+    localStorage.removeItem('siq_admin_token');
+    location.href='admin-login.html';
+  }
 })();
 </script>
 
