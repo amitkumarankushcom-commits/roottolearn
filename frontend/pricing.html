@@ -70,7 +70,7 @@
 const RAZORPAY_KEY=(window.APP_CONFIG && window.APP_CONFIG.razorpay && window.APP_CONFIG.razorpay.key) || 'rzp_test_SYtDiHDucmTTq4';
 const COUPONS={SAVE20:20,LAUNCH50:50,STUDENT30:30,FREEMONTH:100,WELCOME15:15};
 const PRICES={pro:849,enterprise:2499};
-let discount=0,curPay={plan:'pro',price:849};
+let discount=0,curPay={plan:'pro',price:849},appliedCouponCode='';
 const u=getUser();
 if(u && u.name){const init=u.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);document.getElementById('navRight').innerHTML=`<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av" onclick="location.href='profile.html'">${init}</div>`;}function applyCpn(){
   const c=document.getElementById('cpnIn').value.trim().toUpperCase();
@@ -95,6 +95,7 @@ if(u && u.name){const init=u.name.split(' ').map(w=>w[0]).join('').toUpperCase()
     if(!ok) throw new Error(data.error || 'Invalid coupon');
     const disc = data.coupon.discountPercentage;
     discount = disc;
+    appliedCouponCode = c;
     msg.textContent = `🎉 ${disc}% off!`;
     msg.className = 'cmsg ok';
     updatePrices();
@@ -106,6 +107,7 @@ if(u && u.name){const init=u.name.split(' ').map(w=>w[0]).join('').toUpperCase()
     msg.textContent = '❌ ' + (e.message || 'Invalid or expired code');
     msg.className = 'cmsg err';
     discount = 0;
+    appliedCouponCode = '';
     updatePrices();
   });
 }
@@ -114,7 +116,45 @@ function updatePrices(){
   document.getElementById('pprice').innerHTML=discount>0?`₹${Math.round(849*(1-d))}<span>/mo</span> <span style="text-decoration:line-through;font-size:.9rem;color:var(--muted)">₹849</span>`:`₹849<span>/mo</span>`;
   document.getElementById('eprice').innerHTML=discount>0?`₹${Math.round(2499*(1-d))}<span>/mo</span> <span style="text-decoration:line-through;font-size:.9rem;color:var(--muted)">₹2499</span>`:`₹2499<span>/mo</span>`;
 }
-function openPay(plan,price){if(!isLoggedIn()){location.href='login.html';return;}curPay={plan,price};discount=0;processUpiPay();}
+async function syncCouponBeforePay(){
+  const code=(document.getElementById('cpnIn')?.value || '').trim().toUpperCase();
+  if(!code){
+    discount=0;
+    appliedCouponCode='';
+    updatePrices();
+    return;
+  }
+
+  if(code===appliedCouponCode && discount>0) return;
+
+  const headers={'Content-Type':'application/json'};
+  const token=sessionStorage.getItem('siq_access');
+  if(token) headers['Authorization']=`Bearer ${token}`;
+
+  try{
+    const r=await fetch(`${API}/coupons/validate`, {
+      method:'POST',
+      headers,
+      body:JSON.stringify({ code })
+    });
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error || 'Invalid coupon');
+    discount=Number(data.coupon?.discountPercentage || 0);
+    appliedCouponCode=code;
+    updatePrices();
+  }catch(e){
+    discount=0;
+    appliedCouponCode='';
+    updatePrices();
+    toast('⚠️', 'Coupon not valid. Continuing without discount.');
+  }
+}
+async function openPay(plan,price){
+  if(!isLoggedIn()){location.href='login.html';return;}
+  curPay={plan,price};
+  await syncCouponBeforePay();
+  processUpiPay();
+}
 function applyPayCpn(){
   const c=document.getElementById('payCpn').value.trim().toUpperCase();
   const msg=document.getElementById('payCpnMsg');
@@ -156,7 +196,7 @@ async function processUpiPay(){
   if(btn) btn.textContent='⏳ Loading…';
   if(btn) btn.disabled=true;
   const upiId=document.getElementById('upiId')?.value.trim() || '';
-  const cpn=document.getElementById('payCpn')?.value.trim() || '';
+  const cpn=appliedCouponCode;
   const total=Math.round(curPay.price*(1-discount/100));
 
   console.log('[PAYMENT PROCESS] Starting payment:', { plan: curPay.plan, coupon: cpn, total });
