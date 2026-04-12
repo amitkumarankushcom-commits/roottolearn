@@ -509,20 +509,27 @@
 }
 
 .sum-body {
-    background: var(--bg2);
+    background: var(--surface, #1e1e2e);
     border: 1px solid var(--border);
-    border-radius: var(--r);
-    padding: 1.25rem 1.35rem;
-    font-size: .85rem;
-    line-height: 1.9;
+    border-radius: 12px;
+    padding: 1.8rem 2rem;
+    font-size: .92rem;
+    line-height: 1.85;
     color: var(--text);
-    max-height: 420px;
+    max-height: 520px;
     overflow-y: auto;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
 }
 
+.sum-body::-webkit-scrollbar { width: 5px; }
+.sum-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
 .sum-body p {
-    margin-bottom: .85rem;
-    text-align: justify;
+    margin-bottom: 1rem;
+    color: var(--text);
+    opacity: .92;
 }
 
 .sum-body p:last-child {
@@ -530,15 +537,17 @@
 }
 
 .sum-body h4 {
-    font-family: 'Syne', sans-serif;
-    font-size: .88rem;
-    font-weight: 700;
-    margin: 1.4rem 0 .6rem;
-    padding: .45rem .75rem;
-    background: var(--adim);
-    border-left: 3px solid var(--accent);
-    border-radius: 0 6px 6px 0;
-    letter-spacing: .02em;
+    font-size: .82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin: 1.6rem 0 .75rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent, #F7B731);
+    display: flex;
+    align-items: center;
+    gap: .45rem;
 }
 
 .sum-body h4:first-child {
@@ -546,13 +555,47 @@
 }
 
 .sum-body ul {
-    padding-left: 1.2rem;
-    margin-bottom: .85rem;
+    padding-left: 0;
+    margin-bottom: 1rem;
+    list-style: none;
 }
 
 .sum-body li {
-    margin-bottom: .5rem;
-    padding-left: .25rem;
+    margin-bottom: .65rem;
+    padding: .55rem .85rem;
+    background: var(--bg2, rgba(255,255,255,.03));
+    border-left: 2px solid var(--accent, #F7B731);
+    border-radius: 0 8px 8px 0;
+    font-size: .88rem;
+    line-height: 1.7;
+    transition: background .15s;
+}
+
+.sum-body li:hover {
+    background: rgba(247, 183, 49, .06);
+}
+
+.sum-body blockquote {
+    margin: 1rem 0;
+    padding: .8rem 1.1rem;
+    border-left: 3px solid var(--accent, #F7B731);
+    background: rgba(247, 183, 49, .04);
+    border-radius: 0 8px 8px 0;
+    font-style: italic;
+    color: var(--muted);
+}
+
+.sum-body strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.sum-body code {
+    background: rgba(255,255,255,.06);
+    padding: .15rem .4rem;
+    border-radius: 4px;
+    font-size: .84rem;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 .hn {
