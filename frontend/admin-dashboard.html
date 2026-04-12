@@ -409,15 +409,30 @@ let USERS = [], SUMS = [], PAYS = [], ACTS = [], COUPONS = [];
 async function loadStats() {
   try {
     const d = await apiFetch('/admin/stats');
+    
+    // Handle API response structure (stats is nested in response)
+    const stats = d.stats || d;
+    
     document.querySelector('.stat-val[style*="color:var(--accent)"]').textContent =
-      (d.totalUsers||0).toLocaleString();
+      (stats.totalUsers||0).toLocaleString();
     document.querySelector('.stat-val[style*="color:var(--teal)"]').textContent =
-      (d.totalDocs||0).toLocaleString();
+      (stats.totalSummaries||stats.totalDocs||0).toLocaleString();
+    
+    // Calculate revenue from recent payments or amount_cents field
+    let revenue = 0;
+    if (stats.recentPayments && Array.isArray(stats.recentPayments)) {
+      revenue = stats.recentPayments.reduce((sum, p) => sum + (p.amount_cents || p.amount || 0), 0);
+    } else if (stats.revenueCents) {
+      revenue = stats.revenueCents;
+    }
     document.querySelector('.stat-val[style*="color:var(--success)"]').textContent =
-      '₹' + ((d.revenueCents||0)/100).toLocaleString();
-    document.getElementById('ovCpnCnt').textContent = d.activeCoupons||0;
+      '₹' + ((revenue)/100).toLocaleString();
+    
+    // Active coupons - will be set by renderCoupons()
+    document.getElementById('ovCpnCnt').textContent = COUPONS.filter(c => c.is_active).length || 0;
   } catch (e) { 
     console.error('Stats load failed:', e.message);
+    console.error('Full error:', e);
     /* stay on mock stats */ 
   }
 }
@@ -431,11 +446,16 @@ async function loadAll() {
       apiFetch('/admin/activity'),
       apiFetch('/coupons'),
     ]);
-    USERS   = u.users   || [];
-    SUMS    = s.summaries || [];
-    PAYS    = p.payments  || [];
-    ACTS    = a.events    || [];
-    COUPONS = c.coupons  || [];
+    
+    // Handle different response structures
+    USERS   = u.users   || u.data || [];
+    SUMS    = s.summaries || s.data || [];
+    PAYS    = p.payments  || p.data || [];
+    ACTS    = a.activity  || a.data || a.events || [];
+    COUPONS = c.coupons  || c.data || [];
+    
+    console.log('✅ Dashboard data loaded:', { users: USERS.length, summaries: SUMS.length, payments: PAYS.length, activities: ACTS.length, coupons: COUPONS.length });
+    
     document.getElementById('scU').textContent = USERS.length;
     
     // Auto-render all data when loaded
@@ -445,13 +465,17 @@ async function loadAll() {
     renderCoupons();
     renderActivity();
     
+    // Update timestamps
+    document.getElementById('pgTs').textContent = new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'full',timeStyle:'short'});
+    
   } catch (e) { 
     console.error('API load failed:', e.message);
+    console.error('Full error:', e);
     // Show error toast
     document.getElementById('tIcon').textContent = '⚠️';
-    document.getElementById('tTxt').textContent = 'Failed to load dashboard data: ' + e.message;
+    document.getElementById('tTxt').textContent = 'Failed to load dashboard data. Check console.';
     document.getElementById('toast').classList.add('show');
-    setTimeout(() => document.getElementById('toast').classList.remove('show'), 3000);
+    setTimeout(() => document.getElementById('toast').classList.remove('show'), 5000);
   }
 }
 
@@ -462,9 +486,7 @@ document.getElementById('sbName').textContent = adminUser.name;
 document.getElementById('sbRole').textContent = adminUser.adminRole||'admin';
 document.getElementById('pgTs').textContent = new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'full',timeStyle:'short'});
 
-// ── Load data on init
-loadStats();
-loadAll();
+// NOTE: Data loading is deferred to after api.js loads (see end of document)
 
 // Charts
 let chartsInit=false;
@@ -915,6 +937,11 @@ function doLogout(){localStorage.removeItem('siq_admin_token');localStorage.remo
 </script>
 <script src="/config.js"></script>
 <script src="/assets/js/api.js?v=2"></script>
+<!-- Load dashboard data after all external scripts are loaded -->
+<script>
+  loadStats();
+  loadAll();
+</script>
 </body>
 </html>
 
