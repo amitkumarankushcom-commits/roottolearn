@@ -144,7 +144,7 @@ const coupons = {
 const payments = {
   createIntent: (plan, couponCode) => post('/payments/create-intent', { plan, couponCode }),
   createOrder:  (plan, couponCode) => post('/payments/create-order',  { plan, couponCode }),
-  verifyUpi:    (d)                => post('/payments/verify-upi', d),
+  verifyUpi:    (d)                => post('/payments/verify', d),
   history:      () => get('/payments/history'),
 };
 

@@ -366,11 +366,11 @@
       const cpn = document.getElementById('payCpn').value.trim();
       const total = Math.round(curPay.price * (1 - discount / 100));
 
-      let orderId = null, key = RAZORPAY_KEY;
+      let paymentId = null, razorpayOrderId = null, key = RAZORPAY_KEY;
       try {
         const r = await payments.createOrder(curPay.plan, cpn);
         const d = await r.json();
-        if (r.ok) { orderId = d.orderId; key = d.key; }
+        if (r.ok) { paymentId = d.paymentId || d.orderId; razorpayOrderId = d.orderId; key = d.key; }
       } catch (e) { }
 
       const options = {
@@ -380,9 +380,15 @@
         theme: { color: '#F7B731' },
         handler: async function (response) {
           closeUpgrade();
-          if (orderId) {
+          btn.textContent = '📱 Pay via UPI'; btn.disabled = false;
+          if (paymentId) {
             try {
-              const vr = await payments.verifyUpi({ ...response, razorpay_order_id: orderId });
+              const vr = await payments.verifyUpi({
+                paymentId,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature
+              });
               const vd = await vr.json();
               if (vd.success) { toast('🎉', curPay.plan + ' activated!'); setTimeout(() => location.reload(), 1500); return; }
             } catch (e) { }
@@ -391,7 +397,7 @@
         },
         modal: { ondismiss: () => { btn.textContent = '📱 Pay via UPI'; btn.disabled = false; } }
       };
-      if (orderId) options.order_id = orderId;
+      if (razorpayOrderId) options.order_id = razorpayOrderId;
       try { new Razorpay(options).open(); }
       catch (e) { toast('❌', 'Could not open payment. Check console.'); btn.textContent = '📱 Pay via UPI'; btn.disabled = false; }
     }

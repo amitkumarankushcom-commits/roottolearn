@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const axios = require('axios');
 const supabase = require('../config/supabase');
 
 // ── Middleware: Check JWT token
@@ -103,13 +104,70 @@ router.post('/create-order', authenticateToken, async (req, res) => {
       throw error;
     }
 
+    if (finalAmount === 0) {
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update({ status: 'succeeded' })
+        .eq('id', paymentRecord.id);
+
+      if (updateError) {
+        console.error('[CREATE ORDER] Free order status update error:', updateError);
+      }
+
+      console.log('[CREATE ORDER] ✅ Free order created:', paymentRecord.id);
+
+      return res.json({
+        success: true,
+        free: true,
+        paymentId: paymentRecord.id,
+        orderId: paymentRecord.id,
+        amount: 0,
+        key: process.env.RAZORPAY_KEY || 'rzp_test_SYgxg67CSCdmMD'
+      });
+    }
+
+    const razorpayKey = process.env.RAZORPAY_KEY || 'rzp_test_SYgxg67CSCdmMD';
+    const razorpaySecret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!razorpaySecret) {
+      console.error('[CREATE ORDER] Missing RAZORPAY_KEY_SECRET');
+      return res.status(500).json({ error: 'Payment gateway not configured' });
+    }
+
+    const authHeader = Buffer.from(`${razorpayKey}:${razorpaySecret}`).toString('base64');
+    const razorpayOrderPayload = {
+      amount: finalAmount,
+      currency: 'INR',
+      receipt: `payment_${paymentRecord.id}`,
+      notes: {
+        payment_id: String(paymentRecord.id),
+        user_id: String(req.user.id),
+        plan
+      }
+    };
+
+    console.log('[CREATE ORDER] Creating Razorpay order:', razorpayOrderPayload);
+
+    const { data: razorpayOrder } = await axios.post(
+      'https://api.razorpay.com/v1/orders',
+      razorpayOrderPayload,
+      {
+        headers: {
+          Authorization: `Basic ${authHeader}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      }
+    );
+
     console.log('[CREATE ORDER] ✅ Order created:', paymentRecord.id, 'Amount:', finalAmount);
 
     res.json({
       success: true,
-      orderId: paymentRecord.id,
+      paymentId: paymentRecord.id,
+      orderId: razorpayOrder.id,
       amount: finalAmount / 100, // Return amount in INR for display
-      key: process.env.RAZORPAY_KEY || 'rzp_test_SYgxg67CSCdmMD'
+      key: razorpayKey
     });
 
   } catch (error) {
@@ -121,47 +179,45 @@ router.post('/create-order', authenticateToken, async (req, res) => {
 // ── POST /api/payments/verify
 router.post('/verify', authenticateToken, async (req, res) => {
   try {
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+    const {
+      paymentId,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature
+    } = req.body;
 
-    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+    const orderId = razorpayOrderId || razorpay_order_id;
+    const paymentGatewayId = razorpayPaymentId || razorpay_payment_id;
+    const signature = razorpaySignature || razorpay_signature;
+
+    if (!paymentId || !orderId || !paymentGatewayId || !signature) {
       return res.status(400).json({ error: 'Payment details required' });
     }
 
     // Verify Razorpay signature
     const expectedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .update(`${orderId}|${paymentGatewayId}`)
       .digest('hex');
 
-    if (expectedSignature !== razorpaySignature) {
+    if (expectedSignature !== signature) {
       return res.status(400).json({ error: 'Signature verification failed' });
     }
 
-    // Find and update payment record
     const { data: payment, error } = await supabase
       .from('payments')
-      .update({
-        status: 'completed',
-        razorpay_payment_id: razorpayPaymentId,
-        razorpay_signature: razorpaySignature,
-        completed_at: new Date().toISOString()
-      })
-      .eq('razorpay_order_id', razorpayOrderId)
+      .update({ status: 'succeeded' })
+      .eq('id', paymentId)
+      .eq('user_id', req.user.id)
       .select()
       .single();
 
     if (error || !payment) {
       return res.status(404).json({ error: 'Payment record not found' });
     }
-
-    // Enroll user in course
-    await supabase
-      .from('user_courses')
-      .insert([{
-        user_id: payment.user_id,
-        course_id: payment.course_id,
-        enrolled_at: new Date().toISOString()
-      }]);
 
     res.json({ success: true, message: 'Payment verified and processed' });
 

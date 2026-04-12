@@ -216,7 +216,7 @@ async function processUpiPay(){
   }
 
   // Try backend order (needed for plan activation after payment)
-  let orderId=null, key=RAZORPAY_KEY;
+  let paymentId=null, razorpayOrderId=null, key=RAZORPAY_KEY;
   if(isLoggedIn()){
     try{
       console.log('[PAYMENT PROCESS] Creating order with backend...');
@@ -224,9 +224,10 @@ async function processUpiPay(){
       const d=await r.json();
       console.log('[PAYMENT PROCESS] Order response:', { ok: r.ok, data: d });
       if(r.ok){
-        orderId=d.orderId;
+        paymentId=d.paymentId || d.orderId;
+        razorpayOrderId=d.orderId;
         key=d.key;
-        console.log('[PAYMENT PROCESS] ✅ Order created:', orderId);
+        console.log('[PAYMENT PROCESS] ✅ Order created:', { paymentId, razorpayOrderId });
       } else {
         console.warn('[PAYMENT PROCESS] ⚠️ Order creation failed:', d.error);
         toast('⚠️', 'Order creation failed: ' + (d.error || 'Unknown error'));
@@ -250,9 +251,16 @@ async function processUpiPay(){
     theme:{color:'#F7B731'},
     handler:async function(response){
       closePay();
-      if(orderId&&isLoggedIn()){
+      btn.textContent='📱 Pay via UPI';
+      btn.disabled=false;
+      if(paymentId&&isLoggedIn()){
         try{
-          const vr=await payments.verifyUpi({...response,razorpay_order_id:orderId});
+          const vr=await payments.verifyUpi({
+            paymentId,
+            razorpayOrderId: response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature
+          });
           const vd=await vr.json();
           if(vd.success){toast('🎉',curPay.plan+' plan activated!');setTimeout(()=>location.href='app.html',1500);return;}
         }catch(e){}
@@ -262,7 +270,7 @@ async function processUpiPay(){
     },
     modal:{ondismiss:()=>{btn.textContent='📱 Pay via UPI';btn.disabled=false;}}
   };
-  if(orderId) options.order_id=orderId;
+  if(razorpayOrderId) options.order_id=razorpayOrderId;
   try{ new Razorpay(options).open(); }
   catch(e){ toast('❌','Could not open payment. Check console.'); btn.textContent='📱 Pay via UPI'; btn.disabled=false; }
 }
