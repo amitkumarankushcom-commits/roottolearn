@@ -1177,14 +1177,22 @@ ${new Date().toISOString()}
 }
 function doLogout(){localStorage.removeItem('siq_admin_token');localStorage.removeItem('siq_admin_user');location.href='admin-login.html';}
 
-// Init — data loaded via loadAll()/loadStats() above
+// Init — data loaded via loadAll()/loadStats() below
 </script>
 <!-- NOTE: Do NOT load /assets/js/api.js here - it's for user auth, not admin auth -->
 <!-- Load dashboard data after inline scripts are ready -->
 <script>
   console.log('[ADMIN DASHBOARD] Starting data load...');
-  loadStats();
-  loadAll();
+  (async () => {
+    try {
+      await Promise.all([loadStats(), loadAll()]);
+      console.log('[ADMIN DASHBOARD] ✅ Initial data loaded completely');
+      initCharts();
+    } catch (e) {
+      console.error('[ADMIN DASHBOARD] ❌ Data load error:', e);
+      toast('⚠️', 'Failed to load dashboard data');
+    }
+  })();
 </script>
 </body>
 </html>
