@@ -8,6 +8,22 @@ const supabase = require('./supabase');
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const senderEmail = process.env.FROM_EMAIL || process.env.RESEND_FROM || process.env.SMTP_FROM;
+const resendTestSender = 'onboarding@resend.dev';
+
+function resolveSenderEmail() {
+    if (!senderEmail) {
+        return resendTestSender;
+    }
+
+    const publicMailboxDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'live.com'];
+    const senderDomain = senderEmail.split('@')[1]?.toLowerCase();
+
+    if (senderDomain && publicMailboxDomains.includes(senderDomain)) {
+        return resendTestSender;
+    }
+
+    return senderEmail;
+}
 
 function hasUsableResendKey(apiKey) {
     return Boolean(
@@ -179,13 +195,10 @@ async function sendOTPEmail(email, purpose) {
     console.log("📧 Sending OTP to:", email);
 
     const otp = await createOTP(email, purpose);
-    const from = senderEmail ? `RootToLearn <${senderEmail}>` : null;
+    const resolvedSender = resolveSenderEmail();
+    const from = `RootToLearn <${resolvedSender}>`;
 
     try {
-        if (!from) {
-            throw new Error('Missing FROM_EMAIL/RESEND_FROM/SMTP_FROM sender address');
-        }
-
         if (resend && from) {
             const response = await resend.emails.send({
                 from,
