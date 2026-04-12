@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   plan            VARCHAR(20)   NOT NULL DEFAULT 'free' CHECK (plan IN ('free','pro','enterprise')),
   role            VARCHAR(50)   DEFAULT 'user',
   is_verified     BOOLEAN       DEFAULT false,
-  is_active       SMALLINT      NOT NULL DEFAULT 1,
+  is_active       BOOLEAN       DEFAULT true,
   docs_this_month INT           NOT NULL DEFAULT 0,
   total_docs      INT           NOT NULL DEFAULT 0,
   oauth_provider  VARCHAR(30)   DEFAULT NULL,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS admins (
   email           VARCHAR(191)  NOT NULL UNIQUE,
   password_hash   VARCHAR(255)  NOT NULL,
   role            VARCHAR(20)   NOT NULL DEFAULT 'support' CHECK (role IN ('super','editor','support')),
-  is_active       SMALLINT      NOT NULL DEFAULT 1,
+  is_active       BOOLEAN       DEFAULT true,
   last_login      TIMESTAMP     DEFAULT NULL,
   created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

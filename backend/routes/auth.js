@@ -497,8 +497,8 @@ router.post('/admin/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Check if account is active (handle both 0/1 and boolean)
-    const isActive = admin.is_active === 1 || admin.is_active === true;
+    // Check if account is active (handle both boolean and 0/1)
+    const isActive = admin.is_active === true || admin.is_active === 1;
     if (!isActive) {
       console.log('[ADMIN LOGIN] Account disabled:', { email, is_active: admin.is_active });
       return res.status(403).json({ error: 'Account disabled. Contact super admin.' });
