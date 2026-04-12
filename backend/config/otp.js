@@ -202,30 +202,35 @@ async function sendOTPEmail(email, purpose) {
     const from = `RootToLearn <${resolvedSender}>`;
 
     try {
-        if (resend && from) {
-            const response = await resend.emails.send({
-                from,
-                to: email,
-                subject: 'Your OTP Code',
-                html: emailHTML(otp)
-            });
-
-            if (response.error) {
-                throw new Error(response.error.message || 'Resend failed to send email');
-            }
-
-            console.log("✅ Email sent via Resend");
-            return { ok: true };
+        if (!resend) {
+            throw new Error('Resend client not initialized. Check RESEND_API_KEY.');
         }
 
-        throw new Error('Resend is not configured correctly');
+        console.log("📧 Sending from:", from, "to:", email);
+
+        const response = await resend.emails.send({
+            from,
+            to: email,
+            subject: 'Your OTP Code',
+            html: emailHTML(otp)
+        });
+
+        console.log("📧 Resend response:", JSON.stringify(response));
+
+        if (response.error) {
+            throw new Error(response.error.message || JSON.stringify(response.error));
+        }
+
+        console.log("✅ Email sent via Resend, id:", response.data?.id);
+        return { ok: true };
     } catch (err) {
         console.error("❌ Email error:", err.message);
+        console.error("❌ Full error:", err);
         await removeOTP(email, purpose);
 
         return {
             ok: false,
-            error: 'OTP email could not be sent. Check Resend settings.'
+            error: err.message || 'OTP email could not be sent.'
         };
     }
 }
