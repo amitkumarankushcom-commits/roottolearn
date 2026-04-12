@@ -62,21 +62,6 @@
   </div>
 </div>
 
-<!-- Coupon Input for Direct Payment -->
-<div id="couponPrompt" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:2rem;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.2);z-index:1000;min-width:300px;border:1px solid var(--border)">
-  <h3 style="margin:0 0 1rem 0;color:var(--text)">Have a Coupon Code?</h3>
-  <p style="color:var(--muted);font-size:.9rem;margin:0 0 1rem 0">Enter your coupon for a discount</p>
-  <div style="display:flex;gap:.5rem;margin-bottom:.75rem">
-    <input type="text" id="couponInput" placeholder="e.g. SAVE20" style="flex:1;padding:.6rem;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:.9rem">
-    <button onclick="applyCouponBeforePayment()" style="padding:.6rem 1.2rem;background:var(--accent);color:black;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit">Apply</button>
-  </div>
-  <div id="couponMsg" style="font-size:.85rem;margin-bottom:1rem;min-height:1.2rem"></div>
-  <button onclick="proceedToPaymentAfterCoupon()" style="width:100%;padding:.8rem;background:var(--accent);color:black;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit">Proceed to Payment</button>
-  <button onclick="closeCouponPrompt()" style="width:100%;padding:.6rem;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;margin-top:.5rem;cursor:pointer;font-family:inherit">Skip Coupon</button>
-</div>
-<div id="couponOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:999" onclick="closeCouponPrompt()"></div>
-</div>
-
 <div class="toast" id="toast"><span id="tIcon">✅</span><span class="toast-txt" id="tTxt">Done!</span></div>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="/config.js"></script>
@@ -129,19 +114,7 @@ function updatePrices(){
   document.getElementById('pprice').innerHTML=discount>0?`₹${Math.round(849*(1-d))}<span>/mo</span> <span style="text-decoration:line-through;font-size:.9rem;color:var(--muted)">₹849</span>`:`₹849<span>/mo</span>`;
   document.getElementById('eprice').innerHTML=discount>0?`₹${Math.round(2499*(1-d))}<span>/mo</span> <span style="text-decoration:line-through;font-size:.9rem;color:var(--muted)">₹2499</span>`:`₹2499<span>/mo</span>`;
 }
-function openPay(plan,price){
-  if(!isLoggedIn()){
-    location.href='login.html';
-    return;
-  }
-  curPay={plan,price};
-  discount=0;
-  document.getElementById('couponPrompt').style.display='block';
-  document.getElementById('couponOverlay').style.display='block';
-  document.getElementById('couponInput').value='';
-  document.getElementById('couponMsg').textContent='';
-  document.getElementById('couponInput').focus();
-}
+function openPay(plan,price){if(!isLoggedIn()){location.href='login.html';return;}curPay={plan,price};discount=0;processUpiPay();}
 function applyPayCpn(){
   const c=document.getElementById('payCpn').value.trim().toUpperCase();
   const msg=document.getElementById('payCpnMsg');
@@ -176,50 +149,6 @@ function applyPayCpn(){
     msg.className = 'cmsg err';
     discount = 0;
     renderOrder();
-  });
-}
-function closeCouponPrompt(){
-  document.getElementById('couponPrompt').style.display='none';
-  document.getElementById('couponOverlay').style.display='none';
-  discount=0;
-}
-function proceedToPaymentAfterCoupon(){
-  document.getElementById('couponPrompt').style.display='none';
-  document.getElementById('couponOverlay').style.display='none';
-  processUpiPay();
-}
-function applyCouponBeforePayment(){
-  const c=document.getElementById('couponInput').value.trim().toUpperCase();
-  const msg=document.getElementById('couponMsg');
-  if(!c){msg.textContent='Enter a code';msg.style.color='#e74c3c';return;}
-  
-  console.log('[COUPON] Validating:', c);
-  msg.textContent='⏳ Checking...';
-  msg.style.color='var(--muted)';
-  
-  const headers={'Content-Type':'application/json'};
-  const token=localStorage.getItem('siq_token');
-  if(token) headers['Authorization']=`Bearer ${token}`;
-  
-  fetch(`${API}/coupons/validate`,{
-    method:'POST',
-    headers:headers,
-    body:JSON.stringify({code:c})
-  })
-  .then(r=>r.json().then(d=>({ok:r.ok,data:d})))
-  .then(({ok,data})=>{
-    if(!ok) throw new Error(data.error || 'Invalid coupon');
-    const disc=data.coupon.discountPercentage;
-    discount=disc;
-    msg.textContent=`✅ ${disc}% discount applied!`;
-    msg.style.color='#27ae60';
-    console.log('[COUPON] ✅ Applied:', data.coupon);
-  })
-  .catch(e=>{
-    console.error('[COUPON] ❌ Error:', e);
-    msg.textContent='❌ '+(e.message || 'Invalid code');
-    msg.style.color='#e74c3c';
-    discount=0;
   });
 }
 async function processUpiPay(){
