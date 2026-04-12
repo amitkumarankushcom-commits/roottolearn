@@ -14,7 +14,8 @@
       "Bash(netstat -ano)",
       "Bash(findstr \":4000\")",
       "Bash(tasklist)",
-      "Bash(node -e \"const {Resend} = require\\('resend'\\); const r = new Resend\\(\\); console.log\\('Resend initialized, key:', r.apiKey || 'undefined'\\);\")"
+      "Bash(node -e \"const {Resend} = require\\('resend'\\); const r = new Resend\\(\\); console.log\\('Resend initialized, key:', r.apiKey || 'undefined'\\);\")",
+      "Bash(git cherry-pick:*)"
     ]
   }
 }

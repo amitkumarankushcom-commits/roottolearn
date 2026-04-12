@@ -19,31 +19,42 @@ app.set('trust proxy', 1);
 // ================= SECURITY =================
 app.use(helmet({ contentSecurityPolicy: false }));
 
-// ================= CORS (FINAL FIX) =================
+// ================= CORS (ENHANCED) =================
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://roottolearn.com'
+  'http://localhost:5173',
+  'http://localhost:8080',
+  'http://127.0.0.1:3000',
+  'https://roottolearn.com',
+  'https://www.roottolearn.com',
+  'https://roottolearn-api.onrender.com'
 ];
 
-// 🔥 IMPORTANT: this function handles all cases safely
-app.use(cors({
+// 🔥 Enhanced CORS with better handling
+const corsOptions = {
   origin: function (origin, callback) {
-    // Allow Postman / mobile apps / no-origin requests
-    if (!origin) return callback(null, true);
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) {
+      return callback(null, true);
+    }
 
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
       return callback(null, true);
     } else {
-      console.log("❌ Blocked by CORS:", origin);
-      return callback(new Error("Not allowed by CORS"));
+      console.warn("⚠️  CORS blocked - Origin:", origin);
+      return callback(new Error('CORS policy violation'));
     }
   },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  credentials: true
-}));
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  credentials: true,
+  maxAge: 86400 // 24 hours
+};
 
-// Handle preflight (OPTIONS)
-app.options('*', cors());
+app.use(cors(corsOptions));
+
+// Explicit preflight handling (important!)
+app.options('*', cors(corsOptions));
 
 // ================= MIDDLEWARE =================
 app.use(compression());
@@ -60,10 +71,26 @@ app.use(rateLimit({
   message: { error: 'Too many requests. Try again later.' }
 }));
 
-// ================= DEBUG (REMOVE LATER) =================
+// ================= LOGGING MIDDLEWARE =================
 app.use((req, res, next) => {
-  console.log("🌐 Incoming Origin:", req.headers.origin);
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const status = res.statusCode;
+    const color = status >= 400 ? '❌' : status >= 300 ? '⚠️' : '✅';
+    console.log(`${color} [${req.method}] ${req.path} - ${status} (${duration}ms)`);
+  });
   next();
+});
+
+// ================= HEALTH CHECK =================
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV
+  });
 });
 
 // ================= ROUTES =================
@@ -74,19 +101,44 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/coupons', require('./routes/coupons'));
 
-// ================= 404 =================
-app.use((_, res) => {
-  res.status(404).json({ error: 'Route not found.' });
+// ================= ROOT ENDPOINT =================
+app.get('/', (req, res) => {
+  res.json({
+    name: 'RootToLearn API',
+    version: '1.0.0',
+    status: 'online',
+    docs: '/api-docs'
+  });
 });
 
-// ================= ERROR HANDLER =================
-app.use((err, _, res, __) => {
-  console.error('[ERROR]', err.message);
+// ================= 404 ERROR HANDLER =================
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Route not found.',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
 
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production'
-      ? 'Server error.'
-      : err.message
+// ================= GLOBAL ERROR HANDLER =================
+app.use((err, req, res, next) => {
+  const statusCode = err.status || err.statusCode || 500;
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  console.error('[ERROR]', {
+    message: err.message,
+    status: statusCode,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+
+  res.status(statusCode).json({
+    error: isDevelopment ? err.message : 'An error occurred. Please try again later.',
+    status: statusCode,
+    ...(isDevelopment && { stack: err.stack }),
+    timestamp: new Date().toISOString()
   });
 });
 

@@ -40,31 +40,74 @@ function isLoggedIn() {
 }
 
 
-// ── Fetch helpers
+// ── Enhanced Fetch helpers with error handling
 async function apiFetch(path, opts={}) {
   opts.headers = opts.headers || {};
+  
   // Only set Content-Type for non-FormData requests
   if (!(opts.body instanceof FormData)) {
     opts.headers['Content-Type'] = 'application/json';
   }
+  
+  // Add authorization header
   if (_access) opts.headers['Authorization'] = `Bearer ${_access}`;
-  let res = await fetch(API + path, opts);
-  // Auto-refresh on 401
-  if (res.status === 401 && _refresh) {
-    const rr = await fetch(`${API}/auth/refresh`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({refreshToken:_refresh}) });
-    if (rr.ok) {
-      const d = await rr.json();
-      setTokens(d.access, d.refresh);
-      opts.headers['Authorization'] = `Bearer ${d.access}`;
-      res = await fetch(API + path, opts);
-    } else { clearTokens(); window.location.href='/pages/index.html'; return; }
+  
+  try {
+    let res = await fetch(API + path, {
+      ...opts,
+      credentials: 'include'  // Important for CORS with credentials
+    });
+    
+    // Auto-refresh on 401
+    if (res.status === 401 && _refresh) {
+      try {
+        const rr = await fetch(`${API}/auth/refresh`, { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: _refresh }),
+          credentials: 'include'
+        });
+        
+        if (rr.ok) {
+          const d = await rr.json();
+          setTokens(d.access, d.refresh);
+          opts.headers['Authorization'] = `Bearer ${d.access}`;
+          res = await fetch(API + path, { ...opts, credentials: 'include' });
+        } else {
+          clearTokens();
+          window.location.href = '/index.html';
+          return null;
+        }
+      } catch (err) {
+        console.error('[REFRESH ERROR]', err);
+        clearTokens();
+        window.location.href = '/index.html';
+        return null;
+      }
+    }
+    
+    return res;
+  } catch (err) {
+    console.error('[FETCH ERROR]', err);
+    throw new Error(`Network error: ${err.message}`);
   }
-  return res;
 }
-function post(path, body) { return apiFetch(path, { method:'POST', body:JSON.stringify(body) }); }
-function get(path)         { return apiFetch(path); }
-function del(path)         { return apiFetch(path, { method:'DELETE' }); }
-function patch(path, body) { return apiFetch(path, { method:'PATCH', body:JSON.stringify(body) }); }
+
+function post(path, body) { 
+  return apiFetch(path, { method:'POST', body:JSON.stringify(body) }); 
+}
+
+function get(path) { 
+  return apiFetch(path); 
+}
+
+function del(path) { 
+  return apiFetch(path, { method:'DELETE' }); 
+}
+
+function patch(path, body) { 
+  return apiFetch(path, { method:'PATCH', body:JSON.stringify(body) }); 
+}
 
 // ── Auth
 const auth = {
