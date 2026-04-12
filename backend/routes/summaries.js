@@ -25,6 +25,20 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+function buildSummaryFromText(text, style = 'simple') {
+  const cleaned = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '';
+
+  const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (style === 'bullets') {
+    return sentences.slice(0, 6).map(s => `- ${s}`).join('\n');
+  }
+  if (style === 'detailed') {
+    return sentences.slice(0, 10).join(' ');
+  }
+  return sentences.slice(0, 4).join(' ');
+}
+
 // ── GET /api/summaries
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -71,9 +85,12 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // ── POST /api/summaries
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { title, content, courseId } = req.body;
+    const { title, content, text, courseId, style } = req.body;
 
-    if (!title || !content) {
+    const finalTitle = title || `Summary ${new Date().toLocaleString()}`;
+    const finalContent = content || buildSummaryFromText(text, style);
+
+    if (!finalTitle || !finalContent) {
       return res.status(400).json({ error: 'Title and content required' });
     }
 
@@ -81,8 +98,8 @@ router.post('/', authenticateToken, async (req, res) => {
       .from('summaries')
       .insert([{
         user_id: req.user.id,
-        title,
-        content,
+        title: finalTitle,
+        content: finalContent,
         course_id: courseId || null,
         created_at: new Date().toISOString()
       }])

@@ -259,32 +259,40 @@
       document.getElementById('resEmpty').style.display = 'none'; document.getElementById('resContent').classList.remove('show'); document.getElementById('resAnim').classList.add('show');
       let mi = 0; procInt = setInterval(() => { document.getElementById('procLbl').textContent = MSGS[Math.min(mi++, MSGS.length - 1)]; }, 900);
       try {
-        const fd = new FormData();
-        if (S.file) { const ext = S.file.name.split('.').pop().toLowerCase(); if (ext === 'pdf') { const pdfText = await readPDF(S.file); fd.append('text', pdfText); } else { fd.append('file', S.file); } }
-        else { fd.append('text', txt); }
-        fd.append('language', langVal);
-        fd.append('occupation', S.occ);
-        fd.append('style', S.style);
-        fd.append('model', S.model);
-        const resp = await summaries.create(fd);
+        let sourceText = txt;
+        let sourceTitle = `Summary ${new Date().toLocaleString()}`;
+        if (S.file) {
+          const ext = S.file.name.split('.').pop().toLowerCase();
+          sourceTitle = S.file.name;
+          if (ext === 'pdf') {
+            sourceText = await readPDF(S.file);
+          } else {
+            throw new Error('Only PDF or pasted text is supported right now.');
+          }
+        }
+
+        const resp = await summaries.create({
+          title: sourceTitle,
+          text: sourceText,
+          language: langVal,
+          occupation: S.occ,
+          style: S.style,
+          model: S.model
+        });
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
           if (resp.status === 403 && err.upgradeRequired) { clearInterval(procInt); document.getElementById('resAnim').classList.remove('show'); btn.classList.remove('loading'); btn.disabled = false; openUpgrade(); return; }
           throw new Error(err.error || 'Request failed');
         }
         clearInterval(procInt); document.getElementById('resAnim').classList.remove('show');
-        const reader = resp.body.getReader(); const decoder = new TextDecoder();
-        let full = '';
+        const data = await resp.json();
+        const full = (data && data.summary && data.summary.content) ? data.summary.content : '';
         const occ = OCC_CFG[S.occ];
         document.getElementById('resContent').classList.add('show');
         document.getElementById('resOcc').textContent = occ.lbl;
         document.getElementById('resOcc').style.cssText = `background:${occ.bg};color:${occ.col};border-color:${occ.bd};`;
         document.getElementById('resLang').textContent = langLbl;
-        while (true) {
-          const { done, value } = await reader.read(); if (done) break;
-          full += decoder.decode(value, { stream: true });
-          document.getElementById('sumBody').innerHTML = applyHL(full.replace(/---JSON---[\s\S]*/, '').trim(), S.occ);
-        }
+        document.getElementById('sumBody').innerHTML = applyHL(full.replace(/---JSON---[\s\S]*/, '').trim(), S.occ);
         let hl = [{ icon: '📌', val: 'Key Point', label: 'Highlight' }, { icon: '📊', val: 'Main Fact', label: 'Fact' }, { icon: '⚡', val: 'Action', label: 'Next Step' }], tw = [], sumText = full;
         const jm = full.match(/---JSON---\s*([\s\S]*?)\s*---END---/);
         if (jm) { try { const p = JSON.parse(jm[1].trim()); if (p.highlights?.length) hl = p.highlights; if (p.takeaways?.length) tw = p.takeaways; } catch { } sumText = full.replace(/---JSON---[\s\S]*?---END---/, '').trim(); }

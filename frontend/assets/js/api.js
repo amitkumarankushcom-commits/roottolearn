@@ -153,7 +153,10 @@ const users = {
 
 // ── Summaries
 const summaries = {
-  create: (formData) => apiFetch('/summaries', { method:'POST', body: formData }),
+  create: (payload) => apiFetch('/summaries', {
+    method:'POST',
+    body: payload instanceof FormData ? payload : JSON.stringify(payload)
+  }),
 };
 
 // ── Coupons
