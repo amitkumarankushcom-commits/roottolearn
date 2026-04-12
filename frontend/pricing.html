@@ -262,8 +262,18 @@ async function processUpiPay(){
             razorpaySignature: response.razorpay_signature
           });
           const vd=await vr.json();
-          if(vd.success){toast('🎉',curPay.plan+' plan activated!');setTimeout(()=>location.href='app.html',1500);return;}
-        }catch(e){}
+          if(vr.ok && vd.success){
+            toast('🎉',curPay.plan+' plan activated and saved!');
+            setTimeout(()=>location.href='app.html',1500);
+            return;
+          }
+          toast('⚠️', vd.error || 'Payment received, but database save failed.');
+          return;
+        }catch(e){
+          console.error('[PAYMENT VERIFY] ❌ Error saving payment:', e);
+          toast('⚠️', 'Payment received, but database save failed.');
+          return;
+        }
       }
       toast('🎉','Payment done! Sign in to activate your plan.');
       setTimeout(()=>location.href='login.html',2000);

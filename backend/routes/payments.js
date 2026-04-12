@@ -207,19 +207,36 @@ router.post('/verify', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Signature verification failed' });
     }
 
+    console.log('[VERIFY PAYMENT] Saving successful payment:', {
+      paymentId,
+      userId: req.user.id,
+      razorpayOrderId: orderId,
+      razorpayPaymentId: paymentGatewayId
+    });
+
     const { data: payment, error } = await supabase
       .from('payments')
-      .update({ status: 'succeeded' })
+      .update({
+        status: 'succeeded',
+        stripe_pi_id: paymentGatewayId
+      })
       .eq('id', paymentId)
       .eq('user_id', req.user.id)
       .select()
       .single();
 
     if (error || !payment) {
+      console.error('[VERIFY PAYMENT] Database update failed:', error);
       return res.status(404).json({ error: 'Payment record not found' });
     }
 
-    res.json({ success: true, message: 'Payment verified and processed' });
+    console.log('[VERIFY PAYMENT] ✅ Payment saved in database:', payment.id);
+
+    res.json({
+      success: true,
+      message: 'Payment verified and saved',
+      payment
+    });
 
   } catch (error) {
     console.error('[VERIFY PAYMENT ERROR]', error);
