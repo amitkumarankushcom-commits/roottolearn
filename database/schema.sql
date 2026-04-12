@@ -10,12 +10,16 @@ CREATE TABLE IF NOT EXISTS users (
   email           VARCHAR(191)  NOT NULL UNIQUE,
   password_hash   VARCHAR(255)  DEFAULT NULL,
   plan            VARCHAR(20)   NOT NULL DEFAULT 'free' CHECK (plan IN ('free','pro','enterprise')),
+  role            VARCHAR(50)   DEFAULT 'user',
   is_verified     SMALLINT      NOT NULL DEFAULT 0,
   is_active       SMALLINT      NOT NULL DEFAULT 1,
   docs_this_month INT           NOT NULL DEFAULT 0,
   total_docs      INT           NOT NULL DEFAULT 0,
   oauth_provider  VARCHAR(30)   DEFAULT NULL,
   stripe_cust_id  VARCHAR(100)  DEFAULT NULL,
+  profile_image   TEXT          DEFAULT NULL,
+  bio             TEXT          DEFAULT NULL,
+  preferences     JSONB         DEFAULT '{}',
   created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

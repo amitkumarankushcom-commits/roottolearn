@@ -144,11 +144,31 @@ router.post('/login/verify', async (req, res) => {
       return res.status(400).json({ error: result.error });
     }
 
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('id, email, name, role')
-      .eq('email', email)
-      .maybeSingle();
+    // Try to fetch with role column; if it doesn't exist, fall back
+    let user;
+    let userError;
+    
+    try {
+      const { data: userData, error: roleError } = await supabase
+        .from('users')
+        .select('id, email, name, role')
+        .eq('email', email)
+        .maybeSingle();
+      
+      user = userData;
+      userError = roleError;
+    } catch (e) {
+      // If role column doesn't exist, fetch without it
+      console.log('[VERIFY OTP] Fetching without role column');
+      const { data: userData, error: noRoleError } = await supabase
+        .from('users')
+        .select('id, email, name')
+        .eq('email', email)
+        .maybeSingle();
+      
+      user = userData;
+      userError = noRoleError;
+    }
 
     console.log('[VERIFY OTP] user lookup:', { email, userError, user });
     if (userError || !user) {

@@ -93,20 +93,30 @@ async function verifyOTP(email, token, purpose, consume = true) {
 
     console.log("🔍 VERIFY:", { email, purpose });
 
-    const { data, error } = await supabase
-        .from('otp_tokens')
-        .select('*')
-        .eq('target', email)
-        .eq('purpose', purpose)
-        .eq('used', false) // Only look at unused OTPs
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(); // Use maybeSingle to avoid error on multiple rows
+    try {
+        const { data, error } = await supabase
+            .from('otp_tokens')
+            .select('*')
+            .eq('target', email)
+            .eq('purpose', purpose)
+            .eq('used', false) // Only look at unused OTPs
+            .order('created_at', { ascending: false })
+            .maybeSingle(); // Get 0 or 1 row
 
-    console.log("🔍 DB RESULT:", data, error);
+        console.log("🔍 DB RESULT:", { data, error, email, purpose });
 
-    if (error || !data) {
-        return { ok: false, error: 'OTP not found' };
+        if (error) {
+            console.error("❌ DB Query Error:", error.message);
+            throw error;
+        }
+
+        if (!data) {
+            console.log("❌ OTP not found for:", email);
+            return { ok: false, error: 'OTP not found' };
+        }
+    } catch (dbError) {
+        console.error("❌ Database error in verifyOTP:", dbError.message);
+        return { ok: false, error: 'Database error: ' + dbError.message };
     }
 
     // ❌ Already used
