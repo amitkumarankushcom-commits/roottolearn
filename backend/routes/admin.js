@@ -142,7 +142,7 @@ router.get('/payments', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { data: payments, error } = await supabase
       .from('payments')
-      .select('id, user_id, amount, status, created_at, payment_method')
+      .select('id, user_id, plan, amount_cents, status, created_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -160,7 +160,7 @@ router.get('/summaries', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { data: summaries, error } = await supabase
       .from('summaries')
-      .select('id, user_id, title, content, created_at')
+      .select('id, user_id, file_name, summary_text, word_count, created_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
