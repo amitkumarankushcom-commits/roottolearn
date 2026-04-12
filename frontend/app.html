@@ -24,7 +24,7 @@
     <div class="nav-links">
       <button class="nl" onclick="location.href='index.html'">Home</button>
       <button class="nl active">App</button>
-      <button class="nl" onclick="location.href='pricing.html'">Pricing</button>
+      <button class="nl" id="navPricing" onclick="location.href='pricing.html'">Pricing</button>
     </div>
     <div class="nav-right" id="navRight">
       <button class="btn-ghost" onclick="location.href='login.html'">Sign In</button>
@@ -155,8 +155,8 @@
         <div class="usage-track">
           <div class="usage-fill" id="usageFill" style="width:0%"></div>
         </div>
-        <div style="font-size:.68rem;color:var(--muted);margin-top:.35rem"><span id="usagePlan">Free plan</span> - <a
-            onclick="location.href='pricing.html'" style="cursor:pointer">Upgrade for unlimited</a></div>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:.35rem"><span id="usagePlan">Free plan</span><span id="upgradeLink"> - <a
+            onclick="location.href='pricing.html'" style="cursor:pointer">Upgrade for unlimited</a></span></div>
         <div id="limitBanner" style="display:none;margin-top:.6rem;padding:.75rem 1rem;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;align-items:center;gap:.6rem;font-size:.85rem;color:#92400e">
           <span style="font-size:1.3rem">🔒</span>
           <div style="flex:1"><strong>Free limit reached!</strong> You've used all 3 free summaries this month.
@@ -284,6 +284,7 @@
     } else { updateUsage('free', 0); initAds('free'); }
     function updateUsage(plan, used) {
       const isFree = plan === 'free';
+      const isPaid = plan === 'pro' || plan === 'enterprise';
       const pct = isFree ? Math.min((used / 3) * 100, 100) : 0;
       document.getElementById('usageFill').style.width = pct + '%';
       if (isFree && used >= 3) document.getElementById('usageFill').style.background = '#ef4444';
@@ -294,6 +295,14 @@
         banner.style.display = 'flex';
       } else {
         banner.style.display = 'none';
+      }
+      // Hide all purchase/upgrade UI for paid users
+      if (isPaid) {
+        const navP = document.getElementById('navPricing'); if (navP) navP.style.display = 'none';
+        const upLink = document.getElementById('upgradeLink'); if (upLink) upLink.style.display = 'none';
+        const upBar = document.getElementById('upgradeBar'); if (upBar) upBar.style.display = 'none';
+        const adSlot = document.getElementById('adSlot'); if (adSlot) adSlot.style.display = 'none';
+        document.getElementById('usageFill').style.background = 'var(--accent)';
       }
     }
     function ondov(e) { e.preventDefault(); document.getElementById('upZone').classList.add('drag'); }
