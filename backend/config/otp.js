@@ -3,16 +3,11 @@
 // ============================================================
 
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
 const { Resend } = require('resend');
 const supabase = require('./supabase');
 
 const resendApiKey = process.env.RESEND_API_KEY;
-const smtpHost = process.env.SMTP_HOST || process.env.EMAIL_HOST;
-const smtpPort = process.env.SMTP_PORT || process.env.EMAIL_PORT;
-const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
-const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
-const senderEmail = process.env.FROM_EMAIL || process.env.SMTP_FROM || smtpUser;
+const senderEmail = process.env.FROM_EMAIL;
 
 function hasUsableResendKey(apiKey) {
     return Boolean(
@@ -25,22 +20,6 @@ function hasUsableResendKey(apiKey) {
 }
 
 const resend = hasUsableResendKey(resendApiKey) ? new Resend(resendApiKey) : null;
-
-function getSmtpTransporter() {
-    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-        return null;
-    }
-
-    return nodemailer.createTransport({
-        host: smtpHost,
-        port: Number(smtpPort),
-        secure: Number(smtpPort) === 465,
-        auth: {
-            user: smtpUser,
-            pass: smtpPass
-        }
-    });
-}
 
 async function removeOTP(email, purpose) {
     await supabase
@@ -201,21 +180,8 @@ async function sendOTPEmail(email, purpose) {
 
     const otp = await createOTP(email, purpose);
     const from = senderEmail ? `RootToLearn <${senderEmail}>` : null;
-    const transporter = getSmtpTransporter();
 
     try {
-        if (transporter && from) {
-            await transporter.sendMail({
-                from,
-                to: email,
-                subject: 'Your OTP Code',
-                html: emailHTML(otp)
-            });
-
-            console.log("✅ Email sent via SMTP");
-            return { ok: true };
-        }
-
         if (resend && from) {
             const response = await resend.emails.send({
                 from,
@@ -232,14 +198,14 @@ async function sendOTPEmail(email, purpose) {
             return { ok: true };
         }
 
-        throw new Error('No email provider configured');
+        throw new Error('Resend is not configured correctly');
     } catch (err) {
         console.error("❌ Email error:", err.message);
         await removeOTP(email, purpose);
 
         return {
             ok: false,
-            error: 'OTP email could not be sent. Check email provider settings.'
+            error: 'OTP email could not be sent. Check Resend settings.'
         };
     }
 }
