@@ -58,7 +58,7 @@ router.post('/create-order', authenticateToken, async (req, res) => {
       try {
         const { data: coupon, error: couponError } = await supabase
           .from('coupons')
-          .select('id, code, discount_pct, valid_until')
+          .select('id, code, discount_pct, valid_until, max_uses, uses_count')
           .eq('code', couponCode.toUpperCase().trim())
           .eq('is_active', 1)
           .single();
@@ -69,6 +69,8 @@ router.post('/create-order', authenticateToken, async (req, res) => {
           // Check expiry
           if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
             console.log('[CREATE ORDER] Coupon expired:', coupon.valid_until);
+          } else if (coupon.uses_count >= coupon.max_uses) {
+            console.log('[CREATE ORDER] Coupon max uses reached:', coupon.uses_count, '/', coupon.max_uses);
           } else if (coupon.discount_pct) {
             // Apply discount (discount_pct is percentage, amount is in paise)
             const discountAmount = Math.round(finalAmount * coupon.discount_pct / 100);
@@ -116,6 +118,15 @@ router.post('/create-order', authenticateToken, async (req, res) => {
 
       // Update user plan for free order
       await supabase.from('users').update({ plan }).eq('id', req.user.id);
+
+      // Increment coupon uses_count for free order
+      if (couponAppliedCode) {
+        const { data: couponData } = await supabase.from('coupons').select('uses_count').eq('id', couponAppliedCode).single();
+        if (couponData) {
+          await supabase.from('coupons').update({ uses_count: (couponData.uses_count || 0) + 1 }).eq('id', couponAppliedCode);
+        }
+        console.log('[CREATE ORDER] ✅ Coupon uses_count incremented for coupon_id:', couponAppliedCode);
+      }
 
       // Issue new JWT with updated plan
       const { data: updatedUser } = await supabase
@@ -252,6 +263,19 @@ router.post('/verify', authenticateToken, async (req, res) => {
     }
 
     console.log('[VERIFY PAYMENT] ✅ Payment saved in database:', payment.id);
+
+    // ── Increment coupon uses_count if a coupon was used
+    if (payment.coupon_id) {
+      const { error: couponErr } = await supabase.rpc('increment_coupon_uses', { coupon_id_input: payment.coupon_id });
+      if (couponErr) {
+        // Fallback: direct update
+        const { data: couponData } = await supabase.from('coupons').select('uses_count').eq('id', payment.coupon_id).single();
+        if (couponData) {
+          await supabase.from('coupons').update({ uses_count: (couponData.uses_count || 0) + 1 }).eq('id', payment.coupon_id);
+        }
+      }
+      console.log('[VERIFY PAYMENT] ✅ Coupon uses_count incremented for coupon_id:', payment.coupon_id);
+    }
 
     // ── Update user plan in users table
     const newPlan = payment.plan || 'pro';
