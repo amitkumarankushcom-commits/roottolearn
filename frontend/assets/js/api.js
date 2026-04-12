@@ -40,6 +40,13 @@ function isLoggedIn() {
 }
 
 
+// Helper: Check if token is a valid JWT format (3 parts separated by dots)
+function isValidJWT(token) {
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  return parts.length === 3 && parts.every(p => p.length > 0);
+}
+
 // ── Enhanced Fetch helpers with error handling
 async function apiFetch(path, opts={}) {
   opts.headers = opts.headers || {};
@@ -49,8 +56,14 @@ async function apiFetch(path, opts={}) {
     opts.headers['Content-Type'] = 'application/json';
   }
   
-  // Add authorization header
-  if (_access) opts.headers['Authorization'] = `Bearer ${_access}`;
+  // Add authorization header only if token is valid JWT
+  if (_access && isValidJWT(_access)) {
+    opts.headers['Authorization'] = `Bearer ${_access}`;
+  } else if (_access) {
+    // Invalid token format, clear it to prevent 403 errors
+    console.warn('[API] Invalid token format detected, clearing tokens');
+    clearTokens();
+  }
   
   try {
     let res = await fetch(API + path, {
@@ -84,6 +97,14 @@ async function apiFetch(path, opts={}) {
         window.location.href = '/index.html';
         return null;
       }
+    }
+    
+    // Handle 403 (Forbidden) - likely invalid/expired token
+    if (res.status === 403) {
+      console.warn('[API 403 FORBIDDEN]', path, '- clearing tokens and redirecting to login');
+      clearTokens();
+      window.location.href = '/login.html';
+      return null;
     }
     
     return res;

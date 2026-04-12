@@ -82,11 +82,8 @@ function goStep(n) {
 }
 
 function socialLogin(p) {
-  // Demo: skip to success
-  setTokens('demo.'+btoa(JSON.stringify({sub:1,name:'Demo User',email:'demo@example.com',plan:'free',role:'user',exp:Math.floor(Date.now()/1000)+900}))+'demo','refresh-demo');
-  localStorage.setItem('siq_user',JSON.stringify({name:'Demo User',email:'demo@example.com'}));
-  goStep(3);
-  setTimeout(() => location.href='index.html', 1000);
+  // Social login not yet implemented - direct to signup instead
+  showErr('loginErr','Social login not yet available. Please sign up with email/password.');
 }
 
 async function doLogin() {
@@ -209,7 +206,7 @@ function showMsg(id,msg){ const e=document.getElementById(id); e.textContent=msg
 function hide(id){ document.getElementById(id).style.display='none'; }
 </script>
   <script src="config.js"></script>
-  <script src="assets/js/api.js"></script>
+  <script src="assets/js/api.js?v=2"></script>
   <script>if (isLoggedIn()) location.href = 'index.html';</script>
 </body>
 </html>
