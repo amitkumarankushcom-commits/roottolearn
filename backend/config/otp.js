@@ -9,7 +9,7 @@ const supabase = require('./supabase');
 // ── Resend Configuration ──
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
-const senderEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev';
+const senderEmail = 'onboarding@resend.dev';
 
 console.log('📧 Resend configured:', resend ? 'YES' : 'NO');
 console.log('📧 Sender:', senderEmail);
