@@ -7,16 +7,16 @@ const nodemailer = require('nodemailer');
 const supabase = require('./supabase');
 
 // ── Hostinger SMTP Configuration ──
-const smtpHost = process.env.SMTP_HOST || 'smtp.hostinger.com';
+const smtpHost = process.env.SMTP_HOST || 'smtp.titan.email';
 const smtpPort = Number(process.env.SMTP_PORT) || 465;
 const smtpSecure = String(process.env.SMTP_SECURE || 'true').toLowerCase() === 'true';
 const smtpUser = process.env.SMTP_USER || 'support@roottolearn.com';
 const smtpPass = process.env.SMTP_PASS;
 const senderEmail = process.env.SMTP_FROM || smtpUser;
 
-function createTransport(port, secure) {
+function createTransport(host, port, secure) {
     return nodemailer.createTransport({
-        host: smtpHost,
+        host,
         port,
         secure,
         requireTLS: !secure,
@@ -28,20 +28,24 @@ function createTransport(port, secure) {
             pass: smtpPass
         },
         tls: {
-            servername: smtpHost,
+            servername: host,
             minVersion: 'TLSv1.2'
         }
     });
 }
 
-const primaryTransporter = smtpPass ? createTransport(smtpPort, smtpSecure) : null;
-const fallbackTransporter = smtpPass && (smtpPort !== 587 || smtpSecure !== false)
-    ? createTransport(587, false)
-    : null;
+const transportOptions = smtpPass ? [
+    { host: smtpHost, port: smtpPort, secure: smtpSecure, label: `${smtpHost}:${smtpPort} secure=${smtpSecure}` },
+    { host: smtpHost, port: 587, secure: false, label: `${smtpHost}:587 secure=false` },
+    { host: 'smtp.titan.email', port: 465, secure: true, label: 'smtp.titan.email:465 secure=true' },
+    { host: 'smtp.titan.email', port: 587, secure: false, label: 'smtp.titan.email:587 secure=false' }
+].filter((option, index, array) => index === array.findIndex((candidate) => {
+    return candidate.host === option.host && candidate.port === option.port && candidate.secure === option.secure;
+})) : [];
 
 console.log('📧 SMTP host:', smtpHost);
 console.log('📧 SMTP sender:', senderEmail);
-console.log('📧 SMTP configured:', primaryTransporter ? 'YES' : 'NO');
+console.log('📧 SMTP configured:', smtpPass ? 'YES' : 'NO');
 
 async function removeOTP(email, purpose) {
     await supabase
@@ -203,7 +207,7 @@ async function sendOTPEmail(email, purpose) {
     const otp = await createOTP(email, purpose);
 
     try {
-        if (!primaryTransporter) {
+        if (!smtpPass) {
             throw new Error('SMTP not configured. Set SMTP_PASS in Render env.');
         }
 
@@ -217,20 +221,21 @@ async function sendOTPEmail(email, purpose) {
         console.log('📧 SMTP request body:', JSON.stringify(requestBody));
 
         let response;
+        let lastError;
 
-        try {
-            console.log(`📧 Trying SMTP transport ${smtpHost}:${smtpPort} secure=${smtpSecure}`);
-            response = await primaryTransporter.sendMail(requestBody);
-        } catch (primaryError) {
-            const shouldRetryWithFallback = fallbackTransporter && /timeout|connection|greeting/i.test(primaryError.message);
-
-            if (!shouldRetryWithFallback) {
-                throw primaryError;
+        for (const option of transportOptions) {
+            try {
+                console.log(`📧 Trying SMTP transport ${option.label}`);
+                response = await createTransport(option.host, option.port, option.secure).sendMail(requestBody);
+                break;
+            } catch (transportError) {
+                lastError = transportError;
+                console.warn(`⚠️ SMTP transport failed (${option.label}): ${transportError.message}`);
             }
+        }
 
-            console.warn(`⚠️ Primary SMTP transport failed: ${primaryError.message}`);
-            console.log('📧 Retrying with fallback SMTP transport smtp.hostinger.com:587 secure=false');
-            response = await fallbackTransporter.sendMail(requestBody);
+        if (!response) {
+            throw lastError || new Error('SMTP delivery failed');
         }
 
         console.log("✅ Email sent via SMTP, id:", response.messageId);
