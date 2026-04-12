@@ -1,18 +1,20 @@
 /**
  * ════════════════════════════════════════════════════════════════════
- *  Frontend Configuration Loader (config.js)
- *  For Static HTML Applications (No React/Build Tools)
- *  Loads .env file and exposes via window.APP_CONFIG
+ *  Frontend Configuration (config.js)
+ *  Static HTML App - No .env loading
  * ════════════════════════════════════════════════════════════════════
  */
 
-// Global configuration object - default values
+// ================= GLOBAL CONFIG =================
 window.APP_CONFIG = {
+  // Environment
   env: 'production',
   debug: false,
 
+  // API Base URL
   apiUrl: 'https://roottolearn-api.onrender.com/api',
 
+  // Payment Configuration
   razorpay: {
     key: 'rzp_test_SYtDiHDucmTTq4',
   },
@@ -21,6 +23,7 @@ window.APP_CONFIG = {
     key: null,
   },
 
+  // Feature Flags
   features: {
     audio: true,
     payments: true,
@@ -29,24 +32,16 @@ window.APP_CONFIG = {
     signup: true,
   },
 
+  // Analytics
   analytics: {
     gaId: null,
   },
 };
 
-/**
- * Initialize configuration when page loads
- * Loads .env file and populates window.APP_CONFIG
- */
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    loadEnvConfig();
-  });
-} else {
-  loadEnvConfig();
-}
+// ================= DEBUG LOG =================
+console.log("✅ Config Loaded:", window.APP_CONFIG);
 
-// Log configuration on page load
+// ================= OPTIONAL DEBUG =================
 if (window.APP_CONFIG.debug) {
   console.log('[CONFIG] Initialization complete');
   console.log('[CONFIG] API URL:', window.APP_CONFIG.apiUrl);
