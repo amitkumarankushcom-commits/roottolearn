@@ -512,16 +512,17 @@
     background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: var(--r);
-    padding: 1.1rem;
+    padding: 1.25rem 1.35rem;
     font-size: .85rem;
-    line-height: 1.85;
+    line-height: 1.9;
     color: var(--text);
-    max-height: 290px;
+    max-height: 420px;
     overflow-y: auto;
 }
 
 .sum-body p {
-    margin-bottom: .75rem;
+    margin-bottom: .85rem;
+    text-align: justify;
 }
 
 .sum-body p:last-child {
@@ -530,18 +531,28 @@
 
 .sum-body h4 {
     font-family: 'Syne', sans-serif;
-    font-size: .82rem;
+    font-size: .88rem;
     font-weight: 700;
-    margin: .9rem 0 .35rem;
+    margin: 1.4rem 0 .6rem;
+    padding: .45rem .75rem;
+    background: var(--adim);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    letter-spacing: .02em;
+}
+
+.sum-body h4:first-child {
+    margin-top: 0;
 }
 
 .sum-body ul {
-    padding-left: 1rem;
-    margin-bottom: .65rem;
+    padding-left: 1.2rem;
+    margin-bottom: .85rem;
 }
 
 .sum-body li {
-    margin-bottom: .3rem;
+    margin-bottom: .5rem;
+    padding-left: .25rem;
 }
 
 .hn {
