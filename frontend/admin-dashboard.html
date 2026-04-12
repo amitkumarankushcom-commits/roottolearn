@@ -7,7 +7,6 @@
 <link rel="stylesheet" href="/assets/css/main.css">
 <link rel="stylesheet" href="/assets/css/admin-dashboard.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<script src="/config.js"></script>
 
 </head>
 <body>
@@ -382,8 +381,10 @@
 <div class="toast" id="toast"><span id="tIcon">✅</span><span class="toast-txt" id="tTxt">Done!</span></div>
 
 <script>
-// ── API URL from config or fallback
-const API = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.apiUrl) ? APP_CONFIG.apiUrl : '/api';
+// ── API URL (use deployed backend or localhost for development)
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+  ? 'http://localhost:4000/api' 
+  : 'https://roottolearn-backend.onrender.com/api';
 const token = localStorage.getItem('siq_admin_token');
 const hdrs = { 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` };
 
