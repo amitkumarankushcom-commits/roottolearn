@@ -572,9 +572,9 @@
     }
     async function processUpiPay() {
       const btn = document.getElementById('upiPayBtn');
-      btn.textContent = '⏳ Loading…'; btn.disabled = true;
-      const upiId = document.getElementById('upiId').value.trim();
-      const cpn = document.getElementById('payCpn').value.trim();
+      if (btn) { btn.textContent = '⏳ Loading…'; btn.disabled = true; }
+      const upiId = (document.getElementById('upiId')?.value || '').trim();
+      const cpn = (document.getElementById('payCpn')?.value || '').trim();
       const total = Math.round(curPay.price * (1 - discount / 100));
 
       let paymentId = null, razorpayOrderId = null, key = RAZORPAY_KEY;
@@ -592,7 +592,7 @@
         theme: { color: '#F7B731' },
         handler: async function (response) {
           closeUpgrade();
-          btn.textContent = '📱 Pay via UPI'; btn.disabled = false;
+          if (btn) { btn.textContent = '📱 Pay via UPI'; btn.disabled = false; }
           if (paymentId) {
             try {
               const vr = await payments.verifyUpi({
@@ -618,11 +618,11 @@
           }
           toast('🎉', 'Payment done! Refreshing…'); setTimeout(() => location.reload(), 1500);
         },
-        modal: { ondismiss: () => { btn.textContent = '📱 Pay via UPI'; btn.disabled = false; } }
+        modal: { ondismiss: () => { if (btn) { btn.textContent = '📱 Pay via UPI'; btn.disabled = false; } } }
       };
       if (razorpayOrderId) options.order_id = razorpayOrderId;
       try { new Razorpay(options).open(); }
-      catch (e) { toast('❌', 'Could not open payment. Check console.'); btn.textContent = '📱 Pay via UPI'; btn.disabled = false; }
+      catch (e) { toast('❌', 'Could not open payment. Check console.'); if (btn) { btn.textContent = '📱 Pay via UPI'; btn.disabled = false; } }
     }
   </script>
 </body>
