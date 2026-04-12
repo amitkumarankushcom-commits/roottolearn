@@ -85,22 +85,29 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // ── POST /api/summaries
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { title, content, text, courseId, style } = req.body;
+    const { title, text, language, occupation, style, model } = req.body;
 
-    const finalTitle = title || `Summary ${new Date().toLocaleString()}`;
-    const finalContent = content || buildSummaryFromText(text, style);
+    const fileName = title || `Summary ${new Date().toLocaleString()}`;
+    const summaryText = buildSummaryFromText(text, style);
 
-    if (!finalTitle || !finalContent) {
-      return res.status(400).json({ error: 'Title and content required' });
+    if (!summaryText) {
+      return res.status(400).json({ error: 'Text content is required' });
     }
+
+    const wordCount = summaryText.trim().split(/\s+/).length;
 
     const { data: summary, error } = await supabase
       .from('summaries')
       .insert([{
         user_id: req.user.id,
-        title: finalTitle,
-        content: finalContent,
-        course_id: courseId || null,
+        file_name: fileName,
+        file_type: 'text',
+        file_size_kb: Math.round(new Blob([text || '']).size / 1024) || 0,
+        language: language || 'english-simple',
+        occupation: occupation || 'general',
+        style: style || 'simple',
+        word_count: wordCount,
+        summary_text: summaryText,
         created_at: new Date().toISOString()
       }])
       .select()
@@ -120,7 +127,7 @@ router.post('/', authenticateToken, async (req, res) => {
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, content } = req.body;
+    const { file_name, summary_text } = req.body;
 
     // Verify ownership
     const { data: existing } = await supabase
@@ -134,13 +141,13 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
+    const updates = {};
+    if (file_name) updates.file_name = file_name;
+    if (summary_text) updates.summary_text = summary_text;
+
     const { data: summary, error } = await supabase
       .from('summaries')
-      .update({
-        title,
-        content,
-        updated_at: new Date().toISOString()
-      })
+      .update(updates)
       .eq('id', id)
       .select()
       .single();

@@ -286,7 +286,7 @@
         }
         clearInterval(procInt); document.getElementById('resAnim').classList.remove('show');
         const data = await resp.json();
-        const full = (data && data.summary && data.summary.content) ? data.summary.content : '';
+        const full = (data && data.summary && data.summary.summary_text) ? data.summary.summary_text : '';
         const occ = OCC_CFG[S.occ];
         document.getElementById('resContent').classList.add('show');
         document.getElementById('resOcc').textContent = occ.lbl;
