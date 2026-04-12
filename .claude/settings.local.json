@@ -8,7 +8,13 @@
       "Bash(ls -la *.env .env)",
       "Bash(npm list:*)",
       "Bash(git restore:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(curl -s -X POST http://localhost:3000/auth/resend -H \"Content-Type: application/json\" -d '{\"email\":\"test@example.com\",\"purpose\":\"signup\"}')",
+      "Bash(node -e \"const http=require\\('http'\\);const req=http.request\\({hostname:'localhost',port:3000,path:'/auth/resend',method:'POST',headers:{'Content-Type':'application/json'}},res=>{let d='';res.on\\('data',c=>d+=c\\);res.on\\('end',\\(\\)=>console.log\\('Status:',res.statusCode,'Body:',d\\)\\);}\\);req.on\\('error',e=>console.log\\('Error:',e.message\\)\\);req.write\\(JSON.stringify\\({email:'test@example.com',purpose:'signup'}\\)\\);req.end\\(\\);\")",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":4000\")",
+      "Bash(tasklist)",
+      "Bash(node -e \"const {Resend} = require\\('resend'\\); const r = new Resend\\(\\); console.log\\('Resend initialized, key:', r.apiKey || 'undefined'\\);\")"
     ]
   }
 }

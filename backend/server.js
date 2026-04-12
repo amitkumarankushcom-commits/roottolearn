@@ -11,39 +11,51 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const supabase = require("./config/supabase");
 
-// CREATE APP FIRST (very important - MUST be before app.use/app.set)
+// ================= CREATE APP =================
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Trust proxy (nginx / load balancer)
+// Trust proxy (for Render / proxies)
 app.set('trust proxy', 1);
 
-// Security headers
+// ================= SECURITY =================
 app.use(helmet({ contentSecurityPolicy: false }));
 
-// CORS Configuration - parse comma-separated origins into array
-const corsOriginsList = (process.env.CORS_ORIGINS || 'http://localhost:3000')
+// ================= CORS CONFIG =================
+const corsOriginsList = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map(origin => origin.trim())
   .filter(origin => origin);
 
 app.use(cors({
-  origin: corsOriginsList,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (Postman, mobile apps)
+    if (!origin) return callback(null, true);
+
+    if (corsOriginsList.includes(origin)) {
+      return callback(null, true);
+    } else {
+      console.log("❌ Blocked by CORS:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
 
+// Handle preflight requests
 app.options('*', cors({
   origin: corsOriginsList,
   credentials: true
 }));
 
-// ── Body parsers & compression
+// ================= MIDDLEWARE =================
 app.use(compression());
+
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
-// ── Global rate limit
+// ================= RATE LIMIT =================
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.RATE_LIMIT_MAX) || 100,
@@ -52,7 +64,13 @@ app.use(rateLimit({
   message: { error: 'Too many requests. Try again later.' }
 }));
 
-// ── Routes
+// ================= DEBUG (OPTIONAL - REMOVE LATER) =================
+app.use((req, res, next) => {
+  console.log("🌐 Incoming Origin:", req.headers.origin);
+  next();
+});
+
+// ================= ROUTES =================
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/summaries', require('./routes/summaries'));
@@ -60,135 +78,12 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/coupons', require('./routes/coupons'));
 
-// // ── TEST ENDPOINT (dev only)
-// if (process.env.NODE_ENV !== 'production') {
-//   const db = require('./config/db');
-
-//   app.get('/api/test/last-otp/:email/:purpose', async (req, res) => {
-//     try {
-//       const { email, purpose } = req.params;
-
-//       const [rows] = await db.execute(
-//         `SELECT id, token, used FROM otp_tokens WHERE target=? AND purpose=? ORDER BY created_at DESC LIMIT 1`,
-//         [email, purpose]
-//       );
-
-//       if (!rows.length) return res.status(404).json({ error: 'No OTP found' });
-
-//       const row = rows[0];
-
-//       if (row.used) return res.status(400).json({ error: 'OTP already used' });
-
-//       res.json({ otp_hash: row.token, id: row.id });
-
-//     } catch (e) {
-//       res.status(500).json({ error: e.message });
-//     }
-//   });
-// }
-
-// // ── Health check
-// app.get('/health', (_, res) => {
-//   res.json({
-//     status: 'ok',
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
-// // ── Diagnostic endpoint
-// app.get('/api/health', (req, res) => {
-//   res.json({
-//     status: 'ok',
-//     timestamp: new Date().toISOString(),
-//     environment: process.env.NODE_ENV || 'development',
-//     port: PORT,
-//     corsOrigins: corsOriginsList.join(', '),
-//     requestOrigin: req.headers.origin,
-//   });
-// });
-
-// app.get("/api/test/db", async (req, res) => {
-//   try {
-//     const { data, error } = await supabase
-//       .from("users")
-//       .select("*")
-//       .limit(1);
-
-//     if (error) throw error;
-
-//     res.json({ success: true, connected: true });
-//   } catch (err) {
-//     res.status(500).json({ error: err.message, connected: false });
-//   }
-// });
-
-// // ── Email test endpoint (Resend)
-// app.get("/api/test/email", async (req, res) => {
-//   try {
-//     const { Resend } = require('resend');
-//     const resend = new Resend(process.env.RESEND_API_KEY);
-//     if (!process.env.RESEND_API_KEY) {
-//       return res.status(500).json({ error: 'RESEND_API_KEY not configured', connected: false });
-//     }
-//     await resend.emails.send({
-//       from: 'onboarding@resend.dev',
-//       to: process.env.EMAIL_USER,
-//       subject: 'Test Email',
-//       html: '<p>Test successful!</p>'
-//     });
-//     res.json({ success: true, provider: 'resend', connected: true });
-//   } catch (err) {
-//     res.status(500).json({ error: err.message, connected: false });
-//   }
-// });
-
-// // ── Connection status (all checks)
-// app.get("/api/test/status", async (req, res) => {
-//   const status = {
-//     server: 'ok',
-//     timestamp: new Date().toISOString(),
-//     supabase: { connected: false },
-//     email: {
-//   connected: !!process.env.RESEND_API_KEY,
-//   configured: !!process.env.RESEND_API_KEY
-//            },
-//     resend: { configured: !!process.env.RESEND_API_KEY }
-//   };
-
-//   // Check Supabase
-//   try {
-//     const { error } = await supabase.from("users").select("id").limit(1);
-//     status.supabase = { connected: !error, error: error?.message };
-//   } catch (err) {
-//     status.supabase = { connected: false, error: err.message };
-//   }
-
-//   // Check Resend config
-//   if (process.env.RESEND_API_KEY) {
-//     status.resend.configured = true;
-//   }
-
-//   res.json(status);
-// });
-
-// // ── TEST: Create OTP directly (for debugging)
-// app.post("/api/test/create-otp", async (req, res) => {
-//   try {
-//     const { email, purpose } = req.body;
-//     const { sendOTPEmail } = require('./config/otp');
-//     const result = await sendOTPEmail(email || 'test@example.com', purpose || 'login');
-//     res.json(result);
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
-// ── 404 handler
+// ================= 404 HANDLER =================
 app.use((_, res) => {
   res.status(404).json({ error: 'Route not found.' });
 });
 
-// ── Error handler
+// ================= ERROR HANDLER =================
 app.use((err, _, res, __) => {
   console.error('[ERROR]', err.message);
 
@@ -199,7 +94,7 @@ app.use((err, _, res, __) => {
   });
 });
 
-// ── Start server
+// ================= START SERVER =================
 const server = app.listen(PORT, () => {
   console.log('═══════════════════════════════════════════════════');
   console.log('✅ RootToLearn API Server Started');
@@ -210,12 +105,11 @@ const server = app.listen(PORT, () => {
   console.log('═══════════════════════════════════════════════════');
 });
 
-// ── Server error handling
+// ================= ERROR HANDLING =================
 server.on('error', (err) => {
   console.error(`❌ Server error: ${err.message}`);
 });
 
-// ── Handle unhandled promises
 process.on('unhandledRejection', (reason) => {
   console.error('❌ Unhandled Rejection:', reason);
 });
