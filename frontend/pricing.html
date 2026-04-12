@@ -186,14 +186,34 @@ async function processUpiPay(){
   const cpn=document.getElementById('payCpn').value.trim();
   const total=Math.round(curPay.price*(1-discount/100));
 
+  console.log('[PAYMENT PROCESS] Starting payment:', { plan: curPay.plan, coupon: cpn, total });
+
   // Try backend order (needed for plan activation after payment)
   let orderId=null, key=RAZORPAY_KEY;
   if(isLoggedIn()){
     try{
-      const r=await payments.createOrder(curPay.plan,cpn);
+      console.log('[PAYMENT PROCESS] Creating order with backend...');
+      const r=await payments.createOrder(curPay.plan, cpn);
       const d=await r.json();
-      if(r.ok){orderId=d.orderId; key=d.key;}
-    }catch(e){}
+      console.log('[PAYMENT PROCESS] Order response:', { ok: r.ok, data: d });
+      if(r.ok){
+        orderId=d.orderId;
+        key=d.key;
+        console.log('[PAYMENT PROCESS] ✅ Order created:', orderId);
+      } else {
+        console.warn('[PAYMENT PROCESS] ⚠️ Order creation failed:', d.error);
+        toast('⚠️', 'Order creation failed: ' + (d.error || 'Unknown error'));
+        btn.textContent='📱 Pay via UPI';
+        btn.disabled=false;
+        return;
+      }
+    }catch(e){
+      console.error('[PAYMENT PROCESS] ❌ Exception:', e);
+      toast('❌', 'Error preparing payment: ' + e.message);
+      btn.textContent='📱 Pay via UPI';
+      btn.disabled=false;
+      return;
+    }
   }
 
   const options={

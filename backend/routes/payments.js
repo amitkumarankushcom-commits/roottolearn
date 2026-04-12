@@ -31,14 +31,16 @@ router.post('/create-order', authenticateToken, async (req, res) => {
   try {
     const { plan, couponCode } = req.body;
 
+    console.log('[CREATE ORDER] Request:', { userId: req.user.id, plan, couponCode });
+
     if (!plan) {
       return res.status(400).json({ error: 'Plan required' });
     }
 
-    // Define plan prices (in INR)
+    // Define plan prices (in paise for Razorpay)
     const planPrices = {
-      pro: 84900,        // ₹849 = 84900 paise
-      enterprise: 249900 // ₹2499 = 249900 paise
+      pro: 84900,        // ₹849 in paise
+      enterprise: 249900 // ₹2499 in paise
     };
 
     if (!planPrices[plan]) {
@@ -48,34 +50,41 @@ router.post('/create-order', authenticateToken, async (req, res) => {
     let finalAmount = planPrices[plan];
     let couponAppliedCode = null;
 
-    console.log('[CREATE ORDER] Plan:', plan, 'Amount:', finalAmount, 'Coupon:', couponCode);
+    console.log('[CREATE ORDER] Plan:', plan, 'Amount (paise):', finalAmount, 'Coupon:', couponCode);
 
     // Apply coupon if provided
-    if (couponCode) {
-      const { data: coupon, error: couponError } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('code', couponCode.toUpperCase())
-        .eq('is_active', 1)
-        .single();
+    if (couponCode && couponCode.trim()) {
+      try {
+        const { data: coupon, error: couponError } = await supabase
+          .from('coupons')
+          .select('*')
+          .eq('code', couponCode.toUpperCase().trim())
+          .eq('is_active', 1)
+          .single();
 
-      console.log('[CREATE ORDER] Coupon lookup:', { found: !!coupon, error: couponError });
+        console.log('[CREATE ORDER] Coupon lookup:', { found: !!coupon, error: couponError });
 
-      if (coupon) {
-        // Check expiry
-        if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
-          console.log('[CREATE ORDER] Coupon expired');
-        } else {
-          // Apply discount (discount_pct is percentage)
-          const discountAmount = Math.round(finalAmount * coupon.discount_pct / 100);
-          finalAmount = finalAmount - discountAmount;
-          couponAppliedCode = coupon.code;
-          console.log('[CREATE ORDER] Coupon applied:', coupon.code, 'Discount:', coupon.discount_pct, '%', 'Final:', finalAmount);
+        if (coupon) {
+          // Check expiry
+          if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
+            console.log('[CREATE ORDER] Coupon expired:', coupon.valid_until);
+          } else if (coupon.discount_pct) {
+            // Apply discount (discount_pct is percentage, amount is in paise)
+            const discountAmount = Math.round(finalAmount * coupon.discount_pct / 100);
+            finalAmount = finalAmount - discountAmount;
+            couponAppliedCode = coupon.code;
+            console.log('[CREATE ORDER] Coupon applied:', coupon.code, 'Discount:', coupon.discount_pct, '%', 'Final (paise):', finalAmount);
+          }
         }
+      } catch (couponErr) {
+        console.error('[CREATE ORDER] Coupon processing error:', couponErr);
+        // Continue without coupon on error
       }
     }
 
     // Create payment record
+    console.log('[CREATE ORDER] Creating payment record:', { user_id: req.user.id, plan, amount_cents: finalAmount });
+
     const { data: paymentRecord, error } = await supabase
       .from('payments')
       .insert([{
@@ -89,20 +98,23 @@ router.post('/create-order', authenticateToken, async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[CREATE ORDER] DB insert error:', error);
+      throw error;
+    }
 
-    console.log('[CREATE ORDER] ✅ Order created:', paymentRecord.id);
+    console.log('[CREATE ORDER] ✅ Order created:', paymentRecord.id, 'Amount:', finalAmount);
 
     res.json({
       success: true,
       orderId: paymentRecord.id,
-      amount: finalAmount / 100, // Return amount in INR
+      amount: finalAmount / 100, // Return amount in INR for display
       key: process.env.RAZORPAY_KEY || 'rzp_test_SYgxg67CSCdmMD'
     });
 
   } catch (error) {
-    console.error('[CREATE ORDER ERROR]', error);
-    res.status(500).json({ error: error.message });
+    console.error('[CREATE ORDER ERROR]', error.message, error);
+    res.status(500).json({ error: error.message || 'Failed to create order' });
   }
 });
 
