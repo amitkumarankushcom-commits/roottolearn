@@ -214,6 +214,20 @@
     </div>
   </div>
   
+  <!-- Coupon Input for Direct Payment -->
+  <div id="couponPrompt" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:2rem;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.2);z-index:1000;min-width:300px;border:1px solid var(--border)">
+    <h3 style="margin:0 0 1rem 0;color:var(--text)">Have a Coupon Code?</h3>
+    <p style="color:var(--muted);font-size:.9rem;margin:0 0 1rem 0">Enter your coupon for a discount</p>
+    <div style="display:flex;gap:.5rem;margin-bottom:.75rem">
+      <input type="text" id="couponInput" placeholder="e.g. SAVE20" style="flex:1;padding:.6rem;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:.9rem">
+      <button onclick="applyCouponBeforePayment()" style="padding:.6rem 1.2rem;background:var(--accent);color:black;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit">Apply</button>
+    </div>
+    <div id="couponMsg" style="font-size:.85rem;margin-bottom:1rem;min-height:1.2rem"></div>
+    <button onclick="proceedToPaymentAfterCoupon()" style="width:100%;padding:.8rem;background:var(--accent);color:black;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit">Proceed to Payment</button>
+    <button onclick="closeCouponPrompt()" style="width:100%;padding:.6rem;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;margin-top:.5rem;cursor:pointer;font-family:inherit">Skip Coupon</button>
+  </div>
+  <div id="couponOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:999" onclick="closeCouponPrompt()"></div>
+  
   <!-- Hidden payment inputs for direct payment flow -->
   <input type="hidden" id="upiId" value="">
   <input type="hidden" id="payCpn" value="">
@@ -362,9 +376,58 @@
     function openUpgrade() {
       if (!isLoggedIn()) { location.href = 'login.html'; return; }
       curPay = { plan: 'pro', price: 849 };
-      processUpiPay();
+      discount = 0;
+      document.getElementById('couponPrompt').style.display = 'block';
+      document.getElementById('couponOverlay').style.display = 'block';
+      document.getElementById('couponInput').value = '';
+      document.getElementById('couponMsg').textContent = '';
+      document.getElementById('couponInput').focus();
     }
     function closeUpgrade() { }
+    function closeCouponPrompt() {
+      document.getElementById('couponPrompt').style.display = 'none';
+      document.getElementById('couponOverlay').style.display = 'none';
+      discount = 0;
+    }
+    function proceedToPaymentAfterCoupon() {
+      document.getElementById('couponPrompt').style.display = 'none';
+      document.getElementById('couponOverlay').style.display = 'none';
+      processUpiPay();
+    }
+    function applyCouponBeforePayment() {
+      const c = document.getElementById('couponInput').value.trim().toUpperCase();
+      const msg = document.getElementById('couponMsg');
+      if (!c) { msg.textContent = 'Enter a code'; msg.style.color = '#e74c3c'; return; }
+      
+      console.log('[COUPON] Validating:', c);
+      msg.textContent = '⏳ Checking...';
+      msg.style.color = 'var(--muted)';
+      
+      const headers = { 'Content-Type': 'application/json' };
+      const token = sessionStorage.getItem('siq_access');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      fetch(`${API}/coupons/validate`, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ code: c })
+      })
+      .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+      .then(({ ok, data }) => {
+        if (!ok) throw new Error(data.error || 'Invalid coupon');
+        const disc = data.coupon.discountPercentage;
+        discount = disc;
+        msg.textContent = `✓ ${disc}% discount applied!`;
+        msg.style.color = '#27ae60';
+        console.log('[COUPON] ✓ Applied:', data.coupon);
+      })
+      .catch(e => {
+        console.error('[COUPON] ✗ Error:', e);
+        msg.textContent = '✗ ' + (e.message || 'Invalid code');
+        msg.style.color = '#e74c3c';
+        discount = 0;
+      });
+    }
     function selectPlan(el, plan, price) {
       document.querySelectorAll('#planPro,#planEnt').forEach(b => b.classList.remove('active'));
       el.classList.add('active');
@@ -400,7 +463,7 @@
         key, amount: total * 100, currency: 'INR',
         name: 'RootToLearn', description: curPay.plan + ' Plan',
         image: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23F7B731%22/%3E%3Ctext y=%2224%22 x=%275%22 font-size=%2721%27 font-weight=%27900%27 font-family=%27Arial%27 fill=%27%23000%27%3ER%3C/text%3E%3C/svg%3E',
-        prefill: { email: getUser()?.email || '', contact: '', vpa: upiId || undefined },
+        prefill: { email: getUser()?.email || '', vpa: upiId || undefined },
         theme: { color: '#F7B731' },
         handler: async function (response) {
           closeUpgrade();
