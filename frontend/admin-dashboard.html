@@ -842,21 +842,48 @@ async function loadSystemInfo() {
 
 async function saveSettings() {
   try {
-    const data = {
-      free_plan_limit: parseInt(document.getElementById('settingsFreeLimit').value),
-      pro_plan_price: parseFloat(document.getElementById('settingsProPrice').value),
-      enterprise_plan_price: parseFloat(document.getElementById('settingsEntPrice').value),
-      otp_expiry_minutes: parseInt(document.getElementById('settingsOtpExpiry').value),
-    };
+    console.log('[SAVESETTINGS] Saving dashboard settings...');
     
+    // Save free plan limit
     await apiFetch('/admin/settings', {
-      method: 'POST',
-      body: JSON.stringify(data)
+      method: 'PUT',
+      body: JSON.stringify({
+        key: 'free_plan_limit',
+        value: document.getElementById('settingsFreeLimit').value
+      })
     });
     
+    // Save pro price
+    await apiFetch('/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify({
+        key: 'pro_plan_price',
+        value: document.getElementById('settingsProPrice').value
+      })
+    });
+    
+    // Save enterprise price
+    await apiFetch('/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify({
+        key: 'enterprise_plan_price',
+        value: document.getElementById('settingsEntPrice').value
+      })
+    });
+    
+    // Save OTP expiry
+    await apiFetch('/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify({
+        key: 'otp_expiry_minutes',
+        value: document.getElementById('settingsOtpExpiry').value
+      })
+    });
+    
+    console.log('[SAVESETTINGS] ✅ All settings saved');
     toast('✅', 'Settings saved successfully');
   } catch (e) {
-    console.error('Settings save failed:', e);
+    console.error('[SAVESETTINGS] ❌ Error:', e);
     toast('⚠️', 'Failed to save settings');
   }
 }
@@ -892,42 +919,50 @@ function closeAdminPasswordModal() {
 
 async function handleAdminPasswordChange(e) {
   e.preventDefault();
+  console.log('[PASSWORDCHANGE] Starting password change process...');
+  
   const oldPass = document.getElementById('adminOldPass').value;
   const newPass = document.getElementById('adminNewPass').value;
   const confirmPass = document.getElementById('adminConfirmPass').value;
   
+  // Validation
   if (newPass !== confirmPass) {
+    console.error('[PASSWORDCHANGE] Passwords do not match');
     toast('❌', 'Passwords do not match.');
     return;
   }
-  if (newPass.length < 8) {
-    toast('❌', 'Password must be at least 8 characters.');
+  if (newPass.length < 6) {
+    console.error('[PASSWORDCHANGE] Password too short');
+    toast('❌', 'Password must be at least 6 characters.');
     return;
   }
-  if (!/[A-Z]/.test(newPass)) {
-    toast('❌', 'Password must contain at least 1 uppercase letter.');
-    return;
-  }
-  if (!/[0-9]/.test(newPass)) {
-    toast('❌', 'Password must contain at least 1 number.');
+  if (!oldPass) {
+    console.error('[PASSWORDCHANGE] Old password missing');
+    toast('❌', 'Please enter your current password.');
     return;
   }
   
   try {
-    const token = localStorage.getItem('siq_admin_token');
-    const res = await fetch(`${API}/admin/change-password`, {
+    console.log('[PASSWORDCHANGE] Calling /admin/change-password API...');
+    
+    const res = await apiFetch('/admin/change-password', {
       method: 'POST',
-      headers: {'Content-Type':'application/json', 'Authorization':`Bearer ${token}`},
-      body: JSON.stringify({oldPassword:oldPass, newPassword:newPass})
+      body: JSON.stringify({ currentPassword: oldPass, newPassword: newPass })
     });
-    const data = await res.json();
-    if (!res.ok) return toast('❌', data.error || 'Failed to change password.');
+    
+    console.log('[PASSWORDCHANGE] ✅ Password changed successfully');
     toast('✅', 'Password changed successfully!');
     closeAdminPasswordModal();
-    setTimeout(() => { toast('👋', 'Please log in again.'); localStorage.removeItem('siq_admin_token'); setTimeout(()=>location.href='admin-login.html', 1000); }, 1000);
+    
+    setTimeout(() => {
+      toast('👋', 'Please log in again.');
+      localStorage.removeItem('siq_admin_token');
+      localStorage.removeItem('siq_admin_user');
+      setTimeout(() => location.href='admin-login.html', 1000);
+    }, 1000);
   } catch (e) {
-    console.error(e);
-    toast('❌', 'Error changing password.');
+    console.error('[PASSWORDCHANGE] ❌ Error:', e);
+    toast('❌', e.message || 'Error changing password.');
   }
 }
 
