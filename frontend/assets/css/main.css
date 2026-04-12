@@ -197,6 +197,32 @@ textarea {
   font-weight: 500;
 }
 
+/* Ad slots (free users) */
+.ad-slot {
+  display: none;
+  border: 1px dashed rgba(247, 183, 49, .25);
+  border-radius: 10px;
+  background: rgba(247, 183, 49, .03);
+  padding: .75rem;
+  text-align: center;
+}
+
+.upgrade-bar {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  margin-top: .5rem;
+  font-size: .75rem;
+  color: var(--muted);
+}
+
+.upgrade-bar a {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Spinner */
 .spin {
   width: 15px;

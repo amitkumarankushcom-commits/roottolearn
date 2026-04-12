@@ -1,9 +1,7 @@
 // frontend/assets/js/ads.js — Ad management (free users only)
-// Replace PUBLISHER_ID and SLOT_ID with your Google AdSense values
 
 const ADS_CONFIG = {
-  publisherId: 'ca-pub-XXXXXXXXXXXXXXXX',  // ← Replace with your AdSense Publisher ID
-  slotId:      'XXXXXXXXXX',               // ← Replace with your Ad Slot ID
+  publisherId: 'ca-pub-2621988340773883',
 };
 
 function loadAdSenseScript() {
@@ -31,9 +29,13 @@ function initAds(userPlan) {
 
   if (isFree) {
     loadAdSenseScript();
-    // Push ad units after script loads
+    // Push each ad unit after script loads
     setTimeout(() => {
-      try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch {}
-    }, 1000);
+      document.querySelectorAll('.adsbygoogle').forEach(ad => {
+        if (!ad.dataset.adsbygoogleStatus) {
+          try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch {}
+        }
+      });
+    }, 1200);
   }
 }
