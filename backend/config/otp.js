@@ -8,21 +8,36 @@ const { Resend } = require('resend');
 const supabase = require('./supabase');
 
 const resendApiKey = process.env.RESEND_API_KEY;
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
-const senderEmail = process.env.FROM_EMAIL || process.env.SMTP_FROM;
+const smtpHost = process.env.SMTP_HOST || process.env.EMAIL_HOST;
+const smtpPort = process.env.SMTP_PORT || process.env.EMAIL_PORT;
+const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+const senderEmail = process.env.FROM_EMAIL || process.env.SMTP_FROM || smtpUser;
+
+function hasUsableResendKey(apiKey) {
+    return Boolean(
+        apiKey &&
+        apiKey.startsWith('re_') &&
+        apiKey.length > 20 &&
+        !apiKey.includes('123456789') &&
+        !apiKey.includes('xxxxx')
+    );
+}
+
+const resend = hasUsableResendKey(resendApiKey) ? new Resend(resendApiKey) : null;
 
 function getSmtpTransporter() {
-    if (!process.env.SMTP_HOST || !process.env.SMTP_PORT || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
         return null;
     }
 
     return nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT),
-        secure: Number(process.env.SMTP_PORT) === 465,
+        host: smtpHost,
+        port: Number(smtpPort),
+        secure: Number(smtpPort) === 465,
         auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
+            user: smtpUser,
+            pass: smtpPass
         }
     });
 }
@@ -186,8 +201,21 @@ async function sendOTPEmail(email, purpose) {
 
     const otp = await createOTP(email, purpose);
     const from = senderEmail ? `RootToLearn <${senderEmail}>` : null;
+    const transporter = getSmtpTransporter();
 
     try {
+        if (transporter && from) {
+            await transporter.sendMail({
+                from,
+                to: email,
+                subject: 'Your OTP Code',
+                html: emailHTML(otp)
+            });
+
+            console.log("✅ Email sent via SMTP");
+            return { ok: true };
+        }
+
         if (resend && from) {
             const response = await resend.emails.send({
                 from,
@@ -201,20 +229,6 @@ async function sendOTPEmail(email, purpose) {
             }
 
             console.log("✅ Email sent via Resend");
-            return { ok: true };
-        }
-
-        const transporter = getSmtpTransporter();
-
-        if (transporter && from) {
-            await transporter.sendMail({
-                from,
-                to: email,
-                subject: 'Your OTP Code',
-                html: emailHTML(otp)
-            });
-
-            console.log("✅ Email sent via SMTP");
             return { ok: true };
         }
 
