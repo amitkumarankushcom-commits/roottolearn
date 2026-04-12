@@ -203,10 +203,14 @@
     // Restore nav if logged in
     if (isLoggedIn()) {
       const u = getUser();
-      const init = u.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-      document.getElementById('navRight').innerHTML = `
-    <span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span>
-    <div class="user-av" onclick="location.href='profile.html'">${init}</div>`;
+      if (u && u.name) {
+        const init = u.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+        document.getElementById('navRight').innerHTML = `
+      <span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span>
+      <div class="user-av" onclick="location.href='profile.html'">${init}</div>`;
+      } else {
+        console.warn('[APP] User logged in but name missing:', u);
+      }
     }
   </script>
 </body>

@@ -12,9 +12,9 @@ const { sendOTPEmail, verifyOTP } = require('../config/otp');
 
 const OTP_MAX_ATTEMPTS = 5;
 
-const generateToken = (userId, email, role = 'user') => {
+const generateToken = (userId, email, name = '', plan = 'free', role = 'user') => {
   return jwt.sign(
-    { id: userId, email, role },
+    { id: userId, email, name, plan, role },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
   );
@@ -156,7 +156,7 @@ router.post('/login/verify', async (req, res) => {
       try {
         let query = supabase
           .from('users')
-          .select('id, email, name' + (attempts === 1 ? ', role' : ''))
+          .select('id, email, name, plan' + (attempts === 1 ? ', role' : ''))
           .eq('email', email);
         
         const result = await query.maybeSingle();
@@ -197,7 +197,7 @@ router.post('/login/verify', async (req, res) => {
       return res.status(400).json({ error: 'User not found after OTP verification' });
     }
 
-    const token = generateToken(user.id, user.email, user.role || 'user');
+    const token = generateToken(user.id, user.email, user.name, user.plan || 'free', user.role || 'user');
 
     return res.json({
       success: true,
@@ -206,6 +206,7 @@ router.post('/login/verify', async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        plan: user.plan || 'free',
         role: user.role || 'user'
       }
     });
@@ -307,7 +308,7 @@ router.post('/verify-email', async (req, res) => {
 
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, email, name, role')
+      .select('id, email, name, plan, role')
       .eq('email', email)
       .maybeSingle();
 
@@ -316,7 +317,7 @@ router.post('/verify-email', async (req, res) => {
       return res.status(500).json({ error: 'User not found' });
     }
 
-    const token = generateToken(user.id, user.email, user.role || 'user');
+    const token = generateToken(user.id, user.email, user.name, user.plan || 'free', user.role || 'user');
 
     return res.json({
       success: true,
@@ -325,6 +326,7 @@ router.post('/verify-email', async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        plan: user.plan || 'free',
         role: user.role || 'user'
       }
     });
@@ -521,7 +523,7 @@ router.post('/admin/verify', async (req, res) => {
       return res.status(500).json({ error: 'Admin not found' });
     }
 
-    const token = generateToken(admin.id, admin.email, 'admin');
+    const token = generateToken(admin.id, admin.email, admin.name || 'Admin', 'enterprise', admin.role || 'admin');
 
     return res.json({
       success: true,
@@ -562,7 +564,7 @@ router.post('/refresh', async (req, res) => {
     }
 
     // Issue new access token
-    const access = generateToken(decoded.id, decoded.email, decoded.role);
+    const access = generateToken(decoded.id, decoded.email, decoded.name || '', decoded.plan || 'free', decoded.role || 'user');
 
     return res.json({ access });
 
