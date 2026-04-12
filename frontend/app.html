@@ -257,7 +257,7 @@
     let S = { file: null, style: 'simple', occ: 'student', model: 'claude', result: '' };
     let procInt;
     const u = getUser();
-    if (u) { const i = u.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2); document.getElementById('navRight').innerHTML = `<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av" onclick="location.href='profile.html'">${i}</div>`; updateUsage(u.plan, parseInt(localStorage.getItem('siq_docs') || '0')); initAds(u.plan); } else { updateUsage('free', 0); initAds('free'); }
+    if (u && u.name) { const i = u.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2); document.getElementById('navRight').innerHTML = `<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av" onclick="location.href='profile.html'">${i}</div>`; updateUsage(u.plan, parseInt(localStorage.getItem('siq_docs') || '0')); initAds(u.plan); } else { updateUsage('free', 0); initAds('free'); }
     function updateUsage(plan, used) { const isFree = plan === 'free'; document.getElementById('usageFill').style.width = isFree ? Math.min((used / 3) * 100, 100) + '%' : '0%'; document.getElementById('usageVal').textContent = isFree ? `${used} / 3 docs` : 'Unlimited'; document.getElementById('usagePlan').textContent = plan === 'pro' ? 'Pro plan' : plan === 'enterprise' ? 'Enterprise plan' : 'Free plan'; }
     function ondov(e) { e.preventDefault(); document.getElementById('upZone').classList.add('drag'); }
     function ondlv() { document.getElementById('upZone').classList.remove('drag'); }

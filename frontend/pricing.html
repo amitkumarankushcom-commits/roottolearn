@@ -94,8 +94,7 @@ const COUPONS={SAVE20:20,LAUNCH50:50,STUDENT30:30,FREEMONTH:100,WELCOME15:15};
 const PRICES={pro:849,enterprise:2499};
 let discount=0,curPay={plan:'pro',price:849};
 const u=getUser();
-if(u){const init=u.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);document.getElementById('navRight').innerHTML=`<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av" onclick="location.href='profile.html'">${init}</div>`;}
-function applyCpn(){
+if(u && u.name){const init=u.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);document.getElementById('navRight').innerHTML=`<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av" onclick="location.href='profile.html'">${init}</div>`;}function applyCpn(){
   const c=document.getElementById('cpnIn').value.trim().toUpperCase();
   const msg=document.getElementById('cpnMsg');
   if(COUPONS[c]){discount=COUPONS[c];msg.textContent=`🎉 ${COUPONS[c]}% off!`;msg.className='cmsg ok';updatePrices();toast('🎟',`Coupon ${c} applied!`);}
