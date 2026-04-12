@@ -254,15 +254,13 @@ async function processUpiPay(){
       } else {
         console.warn('[PAYMENT PROCESS] ⚠️ Order creation failed:', d.error);
         toast('⚠️', 'Order creation failed: ' + (d.error || 'Unknown error'));
-        btn.textContent='📱 Pay via UPI';
-        btn.disabled=false;
+        if(btn) { btn.textContent='📱 Pay via UPI'; btn.disabled=false; }
         return;
       }
     }catch(e){
       console.error('[PAYMENT PROCESS] ❌ Exception:', e);
       toast('❌', 'Error preparing payment: ' + e.message);
-      btn.textContent='📱 Pay via UPI';
-      btn.disabled=false;
+      if(btn) { btn.textContent='📱 Pay via UPI'; btn.disabled=false; }
       return;
     }
   }
@@ -274,11 +272,10 @@ async function processUpiPay(){
     prefill:{email:u?.email||''},
     theme:{color:'#F7B731'},
     handler:async function(response){
-      closePay();
-      btn.textContent='📱 Pay via UPI';
-      btn.disabled=false;
+      console.log('[PAYMENT] ✅ Razorpay response received:', response);
       if(paymentId&&isLoggedIn()){
         try{
+          console.log('[PAYMENT VERIFY] Sending verify request...');
           const vr=await payments.verifyUpi({
             paymentId,
             razorpayOrderId: response.razorpay_order_id,
@@ -286,28 +283,29 @@ async function processUpiPay(){
             razorpaySignature: response.razorpay_signature
           });
           const vd=await vr.json();
+          console.log('[PAYMENT VERIFY] Response:', vd);
           if(vr.ok && vd.success){
             if(vd.token) setTokens(vd.token, sessionStorage.getItem('siq_refresh'));
-            toast('🎉',curPay.plan+' plan activated and saved!');
+            toast('🎉',curPay.plan+' plan activated!');
             setTimeout(()=>location.href='app.html',1500);
             return;
           }
-          toast('⚠️', vd.error || 'Payment received, but database save failed.');
+          toast('⚠️', vd.error || 'Payment received, but activation failed. Contact support.');
           return;
         }catch(e){
-          console.error('[PAYMENT VERIFY] ❌ Error saving payment:', e);
-          toast('⚠️', 'Payment received, but database save failed.');
+          console.error('[PAYMENT VERIFY] ❌ Error:', e);
+          toast('⚠️', 'Payment received, but activation failed. Contact support.');
           return;
         }
       }
       toast('🎉','Payment done! Sign in to activate your plan.');
       setTimeout(()=>location.href='login.html',2000);
     },
-    modal:{ondismiss:()=>{btn.textContent='📱 Pay via UPI';btn.disabled=false;}}
+    modal:{ondismiss:()=>{toast('ℹ️','Payment cancelled.');}}
   };
   if(razorpayOrderId) options.order_id=razorpayOrderId;
   try{ new Razorpay(options).open(); }
-  catch(e){ toast('❌','Could not open payment. Check console.'); btn.textContent='📱 Pay via UPI'; btn.disabled=false; }
+  catch(e){ toast('❌','Could not open payment gateway.'); console.error('[RAZORPAY] Open error:', e); }
 }
 </script>
 </body>
