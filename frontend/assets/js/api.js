@@ -12,7 +12,7 @@ const API = (() => {
   }
   
   // Production default (Render)
-  return 'https://roottolearn-api.onrender.com/api';
+  return 'https://roottolearn-backend.onrender.com/api';
 })();
 
 // ── Token management (memory + sessionStorage)

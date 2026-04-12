@@ -27,7 +27,7 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
   'https://roottolearn.com',
   'https://www.roottolearn.com',
-  'https://roottolearn-api.onrender.com'
+  'https://roottolearn-backend.onrender.com'
 ];
 
 // 🔥 Enhanced CORS with better handling

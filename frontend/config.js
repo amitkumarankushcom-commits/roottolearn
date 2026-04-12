@@ -23,7 +23,7 @@ window.APP_CONFIG = {
   apiUrl: (() => {
     if (IS_LOCAL) return 'http://localhost:4000/api';
     if (IS_DEV) return 'https://dev-api.roottolearn.com/api';
-    return 'https://roottolearn-api.onrender.com/api';
+    return 'https://roottolearn-backend.onrender.com/api';
   })(),
 
   // Payment Configuration
