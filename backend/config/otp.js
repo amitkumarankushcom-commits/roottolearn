@@ -3,11 +3,37 @@
 // ============================================================
 
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const { Resend } = require('resend');
 const supabase = require('./supabase');
 
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
+const senderEmail = process.env.FROM_EMAIL || process.env.SMTP_FROM;
+
+function getSmtpTransporter() {
+    if (!process.env.SMTP_HOST || !process.env.SMTP_PORT || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        return null;
+    }
+
+    return nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT),
+        secure: Number(process.env.SMTP_PORT) === 465,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+        }
+    });
+}
+
+async function removeOTP(email, purpose) {
+    await supabase
+        .from('otp_tokens')
+        .delete()
+        .eq('target', email)
+        .eq('purpose', purpose);
+}
 
 // ============================================================
 // HASH OTP
@@ -159,25 +185,47 @@ async function sendOTPEmail(email, purpose) {
     console.log("📧 Sending OTP to:", email);
 
     const otp = await createOTP(email, purpose);
+    const from = senderEmail ? `RootToLearn <${senderEmail}>` : null;
 
     try {
-        const response = await resend.emails.send({
-            from: 'RootToLearn <noreply@roottolearn.com>',
-            to: email,
-            subject: 'Your OTP Code',
-            html: emailHTML(otp)
-        });
+        if (resend && from) {
+            const response = await resend.emails.send({
+                from,
+                to: email,
+                subject: 'Your OTP Code',
+                html: emailHTML(otp)
+            });
 
-        console.log("✅ Email sent:", response);
-        return { ok: true };
+            if (response.error) {
+                throw new Error(response.error.message || 'Resend failed to send email');
+            }
 
+            console.log("✅ Email sent via Resend");
+            return { ok: true };
+        }
+
+        const transporter = getSmtpTransporter();
+
+        if (transporter && from) {
+            await transporter.sendMail({
+                from,
+                to: email,
+                subject: 'Your OTP Code',
+                html: emailHTML(otp)
+            });
+
+            console.log("✅ Email sent via SMTP");
+            return { ok: true };
+        }
+
+        throw new Error('No email provider configured');
     } catch (err) {
         console.error("❌ Email error:", err.message);
+        await removeOTP(email, purpose);
 
-        // OTP still exists in DB
         return {
-            ok: true,
-            warning: 'Email may not have been delivered'
+            ok: false,
+            error: 'OTP email could not be sent. Check email provider settings.'
         };
     }
 }
