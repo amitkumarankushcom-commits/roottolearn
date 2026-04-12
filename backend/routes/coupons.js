@@ -36,8 +36,8 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-// ── POST /api/coupons/validate
-router.post('/validate', authenticateToken, async (req, res) => {
+// ── POST /api/coupons/validate (public endpoint - no auth required)
+router.post('/validate', async (req, res) => {
   try {
     const { code } = req.body;
 
@@ -45,30 +45,39 @@ router.post('/validate', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Coupon code required' });
     }
 
+    console.log('[VALIDATE COUPON] Looking up code:', code);
+
     const { data: coupon, error } = await supabase
       .from('coupons')
       .select('*')
       .eq('code', code.toUpperCase())
+      .eq('is_active', 1)
       .single();
 
     if (error || !coupon) {
+      console.error('[VALIDATE COUPON] Not found or error:', error);
       return res.status(404).json({ error: 'Coupon not found' });
     }
 
     // Check if expired
     if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
+      console.error('[VALIDATE COUPON] Expired');
       return res.status(400).json({ error: 'Coupon expired' });
     }
 
     // Check usage limit
-    const { data: usageCount } = await supabase
+    const { count: usageCount } = await supabase
       .from('coupon_usage')
-      .select('COUNT(*)', { count: 'exact', head: true })
+      .select('*', { count: 'exact', head: true })
       .eq('coupon_id', coupon.id);
 
-    if (usageCount >= coupon.max_uses) {
+    console.log('[VALIDATE COUPON] Usage count:', usageCount, 'Max uses:', coupon.max_uses);
+
+    if (usageCount >= (coupon.max_uses || 9999)) {
       return res.status(400).json({ error: 'Coupon usage limit reached' });
     }
+
+    console.log('[VALIDATE COUPON] ✅ Valid coupon:', coupon.code);
 
     res.json({
       success: true,

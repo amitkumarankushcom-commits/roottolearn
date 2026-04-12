@@ -97,8 +97,39 @@ const u=getUser();
 if(u && u.name){const init=u.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);document.getElementById('navRight').innerHTML=`<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av" onclick="location.href='profile.html'">${init}</div>`;}function applyCpn(){
   const c=document.getElementById('cpnIn').value.trim().toUpperCase();
   const msg=document.getElementById('cpnMsg');
-  if(COUPONS[c]){discount=COUPONS[c];msg.textContent=`🎉 ${COUPONS[c]}% off!`;msg.className='cmsg ok';updatePrices();toast('🎟',`Coupon ${c} applied!`);}
-  else{msg.textContent='❌ Invalid code';msg.className='cmsg err';}
+  if(!c){msg.textContent='Enter a coupon code';msg.className='cmsg err';return;}
+  
+  console.log('[COUPON] Validating code:', c);
+  msg.textContent='⏳ Checking...';msg.className='cmsg neutral';
+  
+  // Call API to validate coupon from database (no auth required)
+  const headers = {'Content-Type': 'application/json'};
+  const token = localStorage.getItem('siq_token');
+  if(token) headers['Authorization'] = `Bearer ${token}`;
+  
+  fetch(`${API}/coupons/validate`, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify({ code: c })
+  })
+  .then(r => r.json().then(d => ({ok: r.ok, data: d})))
+  .then(({ok, data}) => {
+    if(!ok) throw new Error(data.error || 'Invalid coupon');
+    const disc = data.coupon.discountPercentage;
+    discount = disc;
+    msg.textContent = `🎉 ${disc}% off!`;
+    msg.className = 'cmsg ok';
+    updatePrices();
+    toast('🎟', `Coupon ${c} applied!`);
+    console.log('[COUPON] ✅ Valid coupon:', data.coupon);
+  })
+  .catch(e => {
+    console.error('[COUPON] ❌ Error:', e);
+    msg.textContent = '❌ ' + (e.message || 'Invalid or expired code');
+    msg.className = 'cmsg err';
+    discount = 0;
+    updatePrices();
+  });
 }
 function updatePrices(){
   const d=discount/100;
@@ -112,7 +143,42 @@ function renderOrder(){
   const discRow=d>0?`<div class="or disc"><span class="lbl">Discount (${d}%)</span><span class="val">−₹${orig-total}</span></div>`:'';
   document.getElementById('orderSum').innerHTML=`<div class="or"><span class="lbl">${curPay.plan.charAt(0).toUpperCase()+curPay.plan.slice(1)} Plan</span><span class="val">₹${orig}/mo</span></div>${discRow}<div class="or total"><span class="lbl">Total</span><span class="val">₹${total}/mo</span></div>`;
 }
-function applyPayCpn(){const c=document.getElementById('payCpn').value.trim().toUpperCase();const msg=document.getElementById('payCpnMsg');if(COUPONS[c]){discount=COUPONS[c];renderOrder();msg.textContent=`✓ ${COUPONS[c]}% off`;msg.className='cmsg ok';}else{msg.textContent='Invalid code';msg.className='cmsg err';}}
+function applyPayCpn(){
+  const c=document.getElementById('payCpn').value.trim().toUpperCase();
+  const msg=document.getElementById('payCpnMsg');
+  if(!c){msg.textContent='';return;}
+  
+  console.log('[PAYMENT COUPON] Validating:', c);
+  msg.textContent='⏳ Checking...';
+  
+  // Call API to validate coupon (no auth required)
+  const headers = {'Content-Type': 'application/json'};
+  const token = localStorage.getItem('siq_token');
+  if(token) headers['Authorization'] = `Bearer ${token}`;
+  
+  fetch(`${API}/coupons/validate`, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify({ code: c })
+  })
+  .then(r => r.json().then(d => ({ok: r.ok, data: d})))
+  .then(({ok, data}) => {
+    if(!ok) throw new Error(data.error || 'Invalid coupon');
+    const disc = data.coupon.discountPercentage;
+    discount = disc;
+    renderOrder();
+    msg.textContent = `✓ ${disc}% off`;
+    msg.className = 'cmsg ok';
+    console.log('[PAYMENT COUPON] ✅ Applied:', data.coupon);
+  })
+  .catch(e => {
+    console.error('[PAYMENT COUPON] ❌ Error:', e);
+    msg.textContent = '❌ ' + (e.message || 'Invalid code');
+    msg.className = 'cmsg err';
+    discount = 0;
+    renderOrder();
+  });
+}
 async function processUpiPay(){
   const btn=document.getElementById('upiPayBtn');
   btn.textContent='⏳ Loading…'; btn.disabled=true;
