@@ -89,7 +89,7 @@
 <script src="/config.js"></script>
 <script src="/assets/js/api.js?v=2"></script>
 <script>
-const RAZORPAY_KEY='rzp_test_SYgxg67CSCdmMD'; // public key — safe in frontend
+const RAZORPAY_KEY=(window.APP_CONFIG && window.APP_CONFIG.razorpay && window.APP_CONFIG.razorpay.key) || 'rzp_test_SYtDiHDucmTTq4';
 const COUPONS={SAVE20:20,LAUNCH50:50,STUDENT30:30,FREEMONTH:100,WELCOME15:15};
 const PRICES={pro:849,enterprise:2499};
 let discount=0,curPay={plan:'pro',price:849};

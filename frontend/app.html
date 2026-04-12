@@ -332,7 +332,7 @@
     function saveHist(text, langLbl) { const item = { name: S.file ? S.file.name : 'Pasted Text', type: S.file ? S.file.name.split('.').pop().toLowerCase() : 'text', lang: langLbl, date: 'Just now', words: text.trim().split(/\s+/).length }; const hist = JSON.parse(localStorage.getItem('siq_hist') || '[]'); hist.unshift(item); if (hist.length > 20) hist.pop(); localStorage.setItem('siq_hist', JSON.stringify(hist)); }
 
     // ── Payment modal
-    const RAZORPAY_KEY = 'rzp_test_SYgxg67CSCdmMD'; // public key — safe in frontend
+    const RAZORPAY_KEY = (window.APP_CONFIG && window.APP_CONFIG.razorpay && window.APP_CONFIG.razorpay.key) || 'rzp_test_SYtDiHDucmTTq4';
     const COUPONS = { SAVE20: 20, LAUNCH50: 50, STUDENT30: 30, FREEMONTH: 100, WELCOME15: 15 };
     let discount = 0, curPay = { plan: 'pro', price: 849 };
 

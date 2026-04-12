@@ -122,11 +122,11 @@ router.post('/create-order', authenticateToken, async (req, res) => {
         paymentId: paymentRecord.id,
         orderId: paymentRecord.id,
         amount: 0,
-        key: process.env.RAZORPAY_KEY || 'rzp_test_SYgxg67CSCdmMD'
+        key: process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY || 'rzp_test_SYtDiHDucmTTq4'
       });
     }
 
-    const razorpayKey = process.env.RAZORPAY_KEY || 'rzp_test_SYgxg67CSCdmMD';
+    const razorpayKey = process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY || 'rzp_test_SYtDiHDucmTTq4';
     const razorpaySecret = process.env.RAZORPAY_KEY_SECRET;
 
     if (!razorpaySecret) {
