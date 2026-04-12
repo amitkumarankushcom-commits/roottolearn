@@ -1,30 +1,32 @@
 // ============================================================
-// OTP SYSTEM (Supabase + Resend API)
+// OTP SYSTEM (Supabase + Hostinger SMTP)
 // ============================================================
 
 const crypto = require('crypto');
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 const supabase = require('./supabase');
 
-// ── Resend Configuration ──
-const resendApiKey = process.env.RESEND_API_KEY;
-const senderEmail = process.env.FROM_EMAIL || process.env.RESEND_FROM || 'onboarding@resend.dev';
+// ── Hostinger SMTP Configuration ──
+const smtpHost = process.env.SMTP_HOST || 'smtp.hostinger.com';
+const smtpPort = Number(process.env.SMTP_PORT) || 465;
+const smtpSecure = String(process.env.SMTP_SECURE || 'true').toLowerCase() === 'true';
+const smtpUser = process.env.SMTP_USER || 'support@roottolearn.com';
+const smtpPass = process.env.SMTP_PASS;
+const senderEmail = process.env.SMTP_FROM || smtpUser;
 
-function resolveSenderEmail() {
-    const publicMailboxDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'live.com'];
-    const senderDomain = senderEmail.split('@')[1]?.toLowerCase();
-
-    if (senderDomain && publicMailboxDomains.includes(senderDomain)) {
-        return 'onboarding@resend.dev';
+const transporter = smtpPass ? nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    auth: {
+        user: smtpUser,
+        pass: smtpPass
     }
+}) : null;
 
-    return senderEmail;
-}
-
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
-
-console.log('📧 Resend configured:', resend ? 'YES' : 'NO');
-console.log('📧 Sender:', resolveSenderEmail());
+console.log('📧 SMTP host:', smtpHost);
+console.log('📧 SMTP sender:', senderEmail);
+console.log('📧 SMTP configured:', transporter ? 'YES' : 'NO');
 
 async function removeOTP(email, purpose) {
     await supabase
@@ -186,26 +188,22 @@ async function sendOTPEmail(email, purpose) {
     const otp = await createOTP(email, purpose);
 
     try {
-        if (!resend) {
-            throw new Error('Resend not configured. Set RESEND_API_KEY in Render env.');
+        if (!transporter) {
+            throw new Error('SMTP not configured. Set SMTP_PASS in Render env.');
         }
 
         const requestBody = {
-            from: `RootToLearn <amitkumarankush.com@gmail.com>`,
-            to: [email],
+            from: `RootToLearn <${senderEmail}>`,
+            to: email,
             subject: 'Your OTP Code',
             html: emailHTML(otp)
         };
 
-        console.log('📧 Resend request body:', JSON.stringify(requestBody));
+        console.log('📧 SMTP request body:', JSON.stringify(requestBody));
 
-        const response = await resend.emails.send(requestBody);
+        const response = await transporter.sendMail(requestBody);
 
-        if (response.error) {
-            throw new Error(response.error.message || JSON.stringify(response.error));
-        }
-
-        console.log("✅ Email sent via Resend, id:", response.data?.id);
+        console.log("✅ Email sent via SMTP, id:", response.messageId);
         return { ok: true };
     } catch (err) {
         console.error("❌ Email error:", err.message);
