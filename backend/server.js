@@ -24,6 +24,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://roottolearn.vercel.app',
   'https://roottolearn.com',
+  'https://www.roottolearn.com',
   'https://roottolearn-backend.onrender.com'
 ];
 
