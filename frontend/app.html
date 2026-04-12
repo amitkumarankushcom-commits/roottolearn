@@ -284,7 +284,7 @@
         });
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          if (resp.status === 403 && err.upgradeRequired) { clearInterval(procInt); document.getElementById('resAnim').classList.remove('show'); btn.classList.remove('loading'); btn.disabled = false; openUpgrade(); return; }
+          if (resp.status === 403) { clearInterval(procInt); document.getElementById('resAnim').classList.remove('show'); btn.classList.remove('loading'); btn.disabled = false; toast('⚠️', err.error || 'Free plan limit reached. Upgrade to continue.'); openUpgrade(); return; }
           throw new Error(err.error || 'Request failed');
         }
         clearInterval(procInt); document.getElementById('resAnim').classList.remove('show');

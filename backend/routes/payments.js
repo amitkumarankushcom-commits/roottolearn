@@ -266,13 +266,9 @@ router.post('/verify', authenticateToken, async (req, res) => {
 
     // ── Increment coupon uses_count if a coupon was used
     if (payment.coupon_id) {
-      const { error: couponErr } = await supabase.rpc('increment_coupon_uses', { coupon_id_input: payment.coupon_id });
-      if (couponErr) {
-        // Fallback: direct update
-        const { data: couponData } = await supabase.from('coupons').select('uses_count').eq('id', payment.coupon_id).single();
-        if (couponData) {
-          await supabase.from('coupons').update({ uses_count: (couponData.uses_count || 0) + 1 }).eq('id', payment.coupon_id);
-        }
+      const { data: couponData } = await supabase.from('coupons').select('uses_count').eq('id', payment.coupon_id).single();
+      if (couponData) {
+        await supabase.from('coupons').update({ uses_count: (couponData.uses_count || 0) + 1 }).eq('id', payment.coupon_id);
       }
       console.log('[VERIFY PAYMENT] ✅ Coupon uses_count incremented for coupon_id:', payment.coupon_id);
     }

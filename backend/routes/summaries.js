@@ -137,6 +137,24 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // ── POST /api/summaries
 router.post('/', authenticateToken, async (req, res) => {
   try {
+    // ── Enforce free plan limit (3 summaries per month)
+    const userPlan = req.user.plan || 'free';
+    if (userPlan === 'free') {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const { count, error: countErr } = await supabase
+        .from('summaries')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', req.user.id)
+        .gte('created_at', startOfMonth.toISOString());
+
+      if (!countErr && count >= 3) {
+        return res.status(403).json({ error: 'Free plan limit reached (3 summaries/month). Upgrade to Pro for unlimited access.', upgradeRequired: true });
+      }
+    }
+
     const { title, text, language, occupation, style, model } = req.body;
 
     const fileName = title || `Summary ${new Date().toLocaleString()}`;
