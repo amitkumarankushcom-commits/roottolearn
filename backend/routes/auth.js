@@ -150,7 +150,7 @@ router.post('/login/verify', async (req, res) => {
       .eq('email', email)
       .maybeSingle();
 
-    console.log('[VERIFY OTP] user lookup:', email, userError, user);
+    console.log('[VERIFY OTP] user lookup:', { email, userError, user });
     if (userError || !user) {
       return res.status(500).json({ error: 'User not found' });
     }
@@ -169,8 +169,8 @@ router.post('/login/verify', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[VERIFY OTP ERROR]', error.message);
-    res.status(500).json({ error: 'Verification failed' });
+    console.error('[VERIFY OTP ERROR]', error.message, error.stack);
+    return res.status(500).json({ error: 'Verification failed: ' + error.message });
   }
 });
 
