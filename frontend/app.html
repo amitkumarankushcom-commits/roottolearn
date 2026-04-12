@@ -367,15 +367,14 @@
     function renderResult(text, hl, tw, langLbl, occ) {
       const ob = document.getElementById('resOcc'); ob.textContent = occ.lbl; ob.style.cssText = `background:${occ.bg};color:${occ.col};border-color:${occ.bd};`;
       document.getElementById('resLang').textContent = langLbl;
-      document.getElementById('hlRow').innerHTML = hl.map((h, i) => `<div class="hl-card" style="background:${occ.bg};border-color:${occ.bd};animation-delay:${i * .08}s"><div class="hc-icon">${h.icon || '📌'}</div><div class="hc-val" style="color:${occ.col}">${h.val}</div><div class="hc-lbl" style="color:${occ.col}">${h.label}</div></div>`).join('');
+      document.getElementById('hlRow').innerHTML = '';
       document.getElementById('sumBody').innerHTML = applyHL(text, S.occ);
       document.getElementById('handwrittenBody').textContent = text;
-      const twBox = document.getElementById('twBox'); if (tw.length) { document.getElementById('twList').innerHTML = tw.map((t, i) => `<div class="tw-item"><div class="tw-dot" style="background:${occ.bg};color:${occ.col};border:1px solid ${occ.bd}">${i + 1}</div><span>${t}</span></div>`).join(''); twBox.style.display = 'block'; } else twBox.style.display = 'none';
+      document.getElementById('twBox').style.display = 'none';
       const words = text.trim().split(/\s+/).length; document.getElementById('mWords').textContent = words; document.getElementById('mTime').textContent = Math.ceil(words / 200) + ' min'; document.getElementById('mLang').textContent = langLbl; document.getElementById('mStyle').textContent = S.style;
       document.getElementById('resContent').classList.add('show');
     }
     function applyHL(text, occ) {
-      const SEC_ICONS = { 'overview': '📋', 'main points': '📌', 'key points': '📌', 'conclusion': '✅', 'detailed analysis': '🔍', 'summary & takeaways': '💡' };
       let html = ''; const lines = text.split('\n'); let inList = false;
       for (const line of lines) {
         const t = line.trim();
@@ -383,20 +382,18 @@
         if (t.startsWith('## ') || t.startsWith('# ')) {
           if (inList) { html += '</ul>'; inList = false; }
           const heading = t.replace(/^#+\s*/, '');
-          const icon = SEC_ICONS[heading.toLowerCase()] || '📎';
-          html += `<h4>${icon} ${esc(heading)}</h4>`;
+          html += `<h4>${esc(heading)}</h4>`;
         } else if (t.startsWith('- ') || t.startsWith('* ')) {
           if (!inList) { html += '<ul>'; inList = true; }
-          html += `<li>${hlLine(t.replace(/^[-\*]\s*/, ''), occ)}</li>`;
+          html += `<li>${esc(t.replace(/^[-\*]\s*/, ''))}</li>`;
         } else {
           if (inList) { html += '</ul>'; inList = false; }
-          html += `<p>${hlLine(t, occ)}</p>`;
+          html += `<p>${esc(t)}</p>`;
         }
       }
       if (inList) html += '</ul>';
       return html;
     }
-    function hlLine(text, occ) { let t = esc(text); t = t.replace(/\b(\d+(?:\.\d+)?(?:[KkMmBb]|Cr)?(?:\s*%|\s*percent)?)\b/g, m => `<span class="hn">${m}</span>`); t = t.replace(/\b(Q[1-4]\s*\d{4}|FY\s*\d{2,4}|\d{4})\b/g, m => `<span class="hd">${m}</span>`); t = t.replace(/\b(must|should|important|critical|key|action|launch|deadline|priority|urgent)\b/gi, m => `<span class="ha">${m}</span>`); const kws = { student: /\b(definition|concept|theory|formula|exam|chapter|topic|remember)\b/gi, business: /\b(revenue|profit|margin|growth|strategy|KPI|ROI|ARR|acquisition|retention)\b/gi, medical: /\b(diagnosis|symptom|treatment|medication|dosage|patient|therapy)\b/gi, legal: /\b(clause|obligation|liability|contract|agreement|breach|damages)\b/gi, tech: /\b(API|SDK|framework|latency|scalability|architecture|database)\b/gi, research: /\b(hypothesis|methodology|sample|significance|finding|validity)\b/gi, teacher: /\b(objective|outcome|assessment|curriculum|lesson|activity)\b/gi, general: /\b(conclusion|result|finding|summary|highlight|major)\b/gi }; const cls = { student: 'ha', business: 'hn', medical: 'hm', legal: 'hl2', tech: 'htc', research: 'hm', teacher: 'hr', general: 'hk' }; if (kws[occ]) t = t.replace(kws[occ], m => `<span class="${cls[occ] || 'hk'}">${m}</span>`); return t; }
     function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
     function cpRes() { if (!S.result) return; navigator.clipboard.writeText(S.result).then(() => toast('OK', 'Copied!')); }
     function dlRes() {
@@ -458,74 +455,59 @@
       const timeStr = new Date().toLocaleTimeString();
       const words = S.result.trim().split(/\s+/).length;
       const filename = `summary-${dateStr.replace(/\//g, '-')}.pdf`;
+      function pdfEsc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
       const opt = {
-        margin: [12, 14, 12, 14],
+        margin: [15, 18, 15, 18],
         filename: filename,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
-
-      // Build well-formatted HTML for PDF
-      const importantWords = ['must','important','critical','key','action','conclusion','result','should','priority','urgent'];
-      function hlPdf(text) {
-        let t = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        importantWords.forEach(w => {
-          t = t.replace(new RegExp(`\\b${w}\\b`, 'gi'), m => `<strong style="color:#F7B731;background:rgba(247,183,49,.1);padding:1px 4px;border-radius:3px">${m}</strong>`);
-        });
-        return t;
-      }
 
       let bodyHtml = '';
       const lines = S.result.split('\n');
       let inList = false;
       for (const line of lines) {
         const t = line.trim();
-        if (!t) {
-          if (inList) { bodyHtml += '</ul>'; inList = false; }
-          continue;
-        }
+        if (!t) { if (inList) { bodyHtml += '</ul>'; inList = false; } continue; }
         if (t.startsWith('## ') || t.startsWith('# ')) {
           if (inList) { bodyHtml += '</ul>'; inList = false; }
           const heading = t.replace(/^#+\s*/, '');
-          bodyHtml += `<h3 style="color:#222;font-size:15px;font-weight:700;margin:22px 0 8px 0;padding:6px 10px;background:#f8f8f0;border-left:4px solid #F7B731;border-radius:2px">${heading}</h3>`;
+          bodyHtml += `<h3 style="color:#1a1a1a;font-size:13.5px;font-weight:600;margin:22px 0 10px 0;padding-bottom:6px;border-bottom:1px solid #e5e5e5;letter-spacing:.2px">${pdfEsc(heading)}</h3>`;
         } else if (t.startsWith('- ') || t.startsWith('* ')) {
-          if (!inList) { bodyHtml += '<ul style="margin:6px 0 6px 16px;padding:0">'; inList = true; }
-          bodyHtml += `<li style="margin:6px 0;font-size:12px;line-height:1.7;color:#333">${hlPdf(t.replace(/^[-\*]\s*/, ''))}</li>`;
+          if (!inList) { bodyHtml += '<ul style="margin:6px 0 6px 18px;padding:0;list-style:disc;color:#555">'; inList = true; }
+          bodyHtml += `<li style="margin:5px 0;font-size:11px;line-height:1.8;color:#333">${pdfEsc(t.replace(/^[-\*]\s*/, ''))}</li>`;
         } else {
           if (inList) { bodyHtml += '</ul>'; inList = false; }
-          bodyHtml += `<p style="margin:8px 0;font-size:12px;line-height:1.8;color:#333;text-align:justify">${hlPdf(t)}</p>`;
+          bodyHtml += `<p style="margin:7px 0;font-size:11px;line-height:1.85;color:#333">${pdfEsc(t)}</p>`;
         }
       }
       if (inList) bodyHtml += '</ul>';
 
       const content = document.createElement('div');
-      content.style.cssText = 'padding:24px;font-family:Arial,Helvetica,sans-serif';
+      content.style.cssText = 'padding:28px 24px;font-family:Inter,system-ui,-apple-system,sans-serif;color:#333';
       content.innerHTML = `
-        <div style="text-align:center;margin-bottom:20px">
-          <div style="display:inline-block;background:#F7B731;color:#000;font-size:22px;font-weight:900;width:38px;height:38px;line-height:38px;border-radius:8px;margin-bottom:6px">R</div>
-          <h1 style="color:#222;font-size:20px;font-weight:800;margin:4px 0 2px 0;letter-spacing:-.5px">Summary Document</h1>
-          <p style="color:#999;font-size:10px;margin:0">Generated on ${dateStr} at ${timeStr}</p>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+          <div style="background:#F7B731;color:#000;font-size:17px;font-weight:900;width:30px;height:30px;line-height:30px;text-align:center;border-radius:6px;flex-shrink:0">R</div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:#1a1a1a">Summary Document</div>
+            <div style="font-size:9px;color:#999;margin-top:2px">${dateStr} at ${timeStr}</div>
+          </div>
         </div>
-        <table style="width:100%;font-size:10px;color:#555;border-collapse:collapse;margin-bottom:16px">
-          <tr>
-            <td style="padding:5px 10px;background:#fafafa;border:1px solid #eee"><strong>Mode</strong></td>
-            <td style="padding:5px 10px;border:1px solid #eee">${occLabel}</td>
-            <td style="padding:5px 10px;background:#fafafa;border:1px solid #eee"><strong>Language</strong></td>
-            <td style="padding:5px 10px;border:1px solid #eee">${langLabel}</td>
-          </tr>
-          <tr>
-            <td style="padding:5px 10px;background:#fafafa;border:1px solid #eee"><strong>Style</strong></td>
-            <td style="padding:5px 10px;border:1px solid #eee">${(S.style || 'simple').charAt(0).toUpperCase() + (S.style || 'simple').slice(1)}</td>
-            <td style="padding:5px 10px;background:#fafafa;border:1px solid #eee"><strong>Words</strong></td>
-            <td style="padding:5px 10px;border:1px solid #eee">${words}</td>
-          </tr>
-        </table>
-        <hr style="border:none;border-top:2px solid #F7B731;margin:0 0 16px 0">
-        ${bodyHtml}
-        <hr style="border:none;border-top:1px solid #eee;margin:24px 0 10px 0">
-        <p style="text-align:center;color:#bbb;font-size:9px;margin:0">Generated by RootToLearn AI &bull; roottolearn.com</p>
+        <div style="display:flex;gap:20px;font-size:9px;color:#666;padding:8px 14px;background:#f9f9f9;border-radius:6px;margin-bottom:20px">
+          <span><strong style="color:#333">Mode</strong> ${occLabel}</span>
+          <span><strong style="color:#333">Language</strong> ${langLabel}</span>
+          <span><strong style="color:#333">Style</strong> ${(S.style||'simple').charAt(0).toUpperCase()+(S.style||'simple').slice(1)}</span>
+          <span><strong style="color:#333">Words</strong> ${words}</span>
+        </div>
+        <div style="border-top:1px solid #e5e5e5;padding-top:14px">
+          ${bodyHtml}
+        </div>
+        <div style="margin-top:30px;padding-top:10px;border-top:1px solid #eee;text-align:center">
+          <span style="color:#bbb;font-size:8px">Generated by RootToLearn AI</span>
+        </div>
       `;
 
       html2pdf().set(opt).from(content).save();
