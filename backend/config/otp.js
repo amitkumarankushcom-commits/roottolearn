@@ -14,19 +14,34 @@ const smtpUser = process.env.SMTP_USER || 'support@roottolearn.com';
 const smtpPass = process.env.SMTP_PASS;
 const senderEmail = process.env.SMTP_FROM || smtpUser;
 
-const transporter = smtpPass ? nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpSecure,
-    auth: {
-        user: smtpUser,
-        pass: smtpPass
-    }
-}) : null;
+function createTransport(port, secure) {
+    return nodemailer.createTransport({
+        host: smtpHost,
+        port,
+        secure,
+        requireTLS: !secure,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+        auth: {
+            user: smtpUser,
+            pass: smtpPass
+        },
+        tls: {
+            servername: smtpHost,
+            minVersion: 'TLSv1.2'
+        }
+    });
+}
+
+const primaryTransporter = smtpPass ? createTransport(smtpPort, smtpSecure) : null;
+const fallbackTransporter = smtpPass && (smtpPort !== 587 || smtpSecure !== false)
+    ? createTransport(587, false)
+    : null;
 
 console.log('📧 SMTP host:', smtpHost);
 console.log('📧 SMTP sender:', senderEmail);
-console.log('📧 SMTP configured:', transporter ? 'YES' : 'NO');
+console.log('📧 SMTP configured:', primaryTransporter ? 'YES' : 'NO');
 
 async function removeOTP(email, purpose) {
     await supabase
@@ -188,7 +203,7 @@ async function sendOTPEmail(email, purpose) {
     const otp = await createOTP(email, purpose);
 
     try {
-        if (!transporter) {
+        if (!primaryTransporter) {
             throw new Error('SMTP not configured. Set SMTP_PASS in Render env.');
         }
 
@@ -201,7 +216,22 @@ async function sendOTPEmail(email, purpose) {
 
         console.log('📧 SMTP request body:', JSON.stringify(requestBody));
 
-        const response = await transporter.sendMail(requestBody);
+        let response;
+
+        try {
+            console.log(`📧 Trying SMTP transport ${smtpHost}:${smtpPort} secure=${smtpSecure}`);
+            response = await primaryTransporter.sendMail(requestBody);
+        } catch (primaryError) {
+            const shouldRetryWithFallback = fallbackTransporter && /timeout|connection|greeting/i.test(primaryError.message);
+
+            if (!shouldRetryWithFallback) {
+                throw primaryError;
+            }
+
+            console.warn(`⚠️ Primary SMTP transport failed: ${primaryError.message}`);
+            console.log('📧 Retrying with fallback SMTP transport smtp.hostinger.com:587 secure=false');
+            response = await fallbackTransporter.sendMail(requestBody);
+        }
 
         console.log("✅ Email sent via SMTP, id:", response.messageId);
         return { ok: true };
