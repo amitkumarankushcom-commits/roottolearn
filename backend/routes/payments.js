@@ -57,7 +57,7 @@ router.post('/create-order', authenticateToken, async (req, res) => {
       try {
         const { data: coupon, error: couponError } = await supabase
           .from('coupons')
-          .select('*')
+          .select('id, code, discount_pct, valid_until')
           .eq('code', couponCode.toUpperCase().trim())
           .eq('is_active', 1)
           .single();
@@ -72,8 +72,8 @@ router.post('/create-order', authenticateToken, async (req, res) => {
             // Apply discount (discount_pct is percentage, amount is in paise)
             const discountAmount = Math.round(finalAmount * coupon.discount_pct / 100);
             finalAmount = finalAmount - discountAmount;
-            couponAppliedCode = coupon.code;
-            console.log('[CREATE ORDER] Coupon applied:', coupon.code, 'Discount:', coupon.discount_pct, '%', 'Final (paise):', finalAmount);
+            couponAppliedCode = coupon.id; // Store coupon ID, not code
+            console.log('[CREATE ORDER] Coupon applied:', coupon.code, 'ID:', coupon.id, 'Discount:', coupon.discount_pct, '%', 'Final (paise):', finalAmount);
           }
         }
       } catch (couponErr) {
@@ -83,7 +83,7 @@ router.post('/create-order', authenticateToken, async (req, res) => {
     }
 
     // Create payment record
-    console.log('[CREATE ORDER] Creating payment record:', { user_id: req.user.id, plan, amount_cents: finalAmount });
+    console.log('[CREATE ORDER] Creating payment record:', { user_id: req.user.id, plan, amount_cents: finalAmount, coupon_id: couponAppliedCode });
 
     const { data: paymentRecord, error } = await supabase
       .from('payments')
@@ -91,9 +91,9 @@ router.post('/create-order', authenticateToken, async (req, res) => {
         user_id: req.user.id,
         plan: plan,
         amount_cents: finalAmount,
+        currency: 'INR',
         status: 'pending',
-        coupon_code: couponAppliedCode || null,
-        created_at: new Date().toISOString()
+        coupon_id: couponAppliedCode || null
       }])
       .select()
       .single();
