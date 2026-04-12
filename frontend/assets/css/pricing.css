@@ -290,6 +290,22 @@
   margin-top: .4rem;
 }
 
+.pay-link {
+  display: block;
+  width: 100%;
+  padding: .8rem;
+  border-radius: 9px;
+  font-size: .9rem;
+  font-weight: 700;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid rgba(247,183,49,.28);
+  text-align: center;
+  text-decoration: none;
+  font-family: 'Syne', sans-serif;
+  margin-top: .55rem;
+}
+
 .pay-sec {
   text-align: center;
   font-size: .72rem;

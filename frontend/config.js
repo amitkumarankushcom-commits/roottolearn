@@ -29,6 +29,7 @@ window.APP_CONFIG = {
   // Payment Configuration
   razorpay: {
     key: IS_PROD ? 'rzp_live_YOUR_KEY_HERE' : 'rzp_test_SYtDiHDucmTTq4',
+    paymentLink: 'https://razorpay.me/@amitkumarankush',
   },
 
   stripe: {

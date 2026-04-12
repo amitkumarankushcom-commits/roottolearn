@@ -233,6 +233,7 @@
         <input class="finput" id="upiId" type="text" placeholder="yourname@upi">
       </div>
       <button class="pay-btn" id="upiPayBtn" onclick="processUpiPay()">📱 Pay via UPI</button>
+      <a class="pay-link" id="rzpMeLink" href="https://razorpay.me/@amitkumarankush" target="_blank" rel="noopener noreferrer">Open Razorpay.me Payment Link</a>
       <div class="pay-sec">🔐 Secured by Razorpay — PCI DSS Compliant</div>
     </div>
   </div>
@@ -333,8 +334,10 @@
 
     // ── Payment modal
     const RAZORPAY_KEY = (window.APP_CONFIG && window.APP_CONFIG.razorpay && window.APP_CONFIG.razorpay.key) || 'rzp_test_SYtDiHDucmTTq4';
+    const RAZORPAY_PAYMENT_LINK = (window.APP_CONFIG && window.APP_CONFIG.razorpay && window.APP_CONFIG.razorpay.paymentLink) || 'https://razorpay.me/@amitkumarankush';
     const COUPONS = { SAVE20: 20, LAUNCH50: 50, STUDENT30: 30, FREEMONTH: 100, WELCOME15: 15 };
     let discount = 0, curPay = { plan: 'pro', price: 849 };
+    document.getElementById('rzpMeLink').href = RAZORPAY_PAYMENT_LINK;
 
     function openUpgrade() {
       if (!isLoggedIn()) { location.href = 'login.html'; return; }
