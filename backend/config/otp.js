@@ -1,34 +1,18 @@
 // ============================================================
-// OTP SYSTEM (Supabase + Gmail SMTP via Nodemailer)
+// OTP SYSTEM (Supabase + Resend API)
 // ============================================================
 
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const supabase = require('./supabase');
 
-// ── Gmail SMTP Configuration ──
-const smtpUser = process.env.EMAIL_USER;
-const smtpPass = process.env.EMAIL_PASS;
-const smtpFrom = process.env.SMTP_FROM || smtpUser;
+// ── Resend Configuration ──
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
+const senderEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev';
 
-const transporter = (smtpUser && smtpPass) ? nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: false,
-    auth: {
-        user: smtpUser,
-        pass: smtpPass
-    }
-}) : null;
-
-// Verify SMTP connection on startup
-if (transporter) {
-    transporter.verify()
-        .then(() => console.log('📧 Gmail SMTP connected ✅'))
-        .catch(err => console.error('📧 Gmail SMTP error:', err.message));
-} else {
-    console.error('📧 SMTP not configured (missing EMAIL_USER or EMAIL_PASS)');
-}
+console.log('📧 Resend configured:', resend ? 'YES' : 'NO');
+console.log('📧 Sender:', senderEmail);
 
 async function removeOTP(email, purpose) {
     await supabase
@@ -190,18 +174,22 @@ async function sendOTPEmail(email, purpose) {
     const otp = await createOTP(email, purpose);
 
     try {
-        if (!transporter) {
-            throw new Error('SMTP not configured. Set EMAIL_USER and EMAIL_PASS.');
+        if (!resend) {
+            throw new Error('Resend not configured. Set RESEND_API_KEY.');
         }
 
-        const info = await transporter.sendMail({
-            from: `RootToLearn <${smtpFrom}>`,
-            to: email,
+        const { data, error } = await resend.emails.send({
+            from: `RootToLearn <${senderEmail}>`,
+            to: [email],
             subject: 'Your OTP Code',
             html: emailHTML(otp)
         });
 
-        console.log("✅ Email sent via Gmail SMTP, messageId:", info.messageId);
+        if (error) {
+            throw new Error(error.message || JSON.stringify(error));
+        }
+
+        console.log("✅ Email sent via Resend, id:", data?.id);
         return { ok: true };
     } catch (err) {
         console.error("❌ Email error:", err.message);
