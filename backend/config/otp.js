@@ -1,51 +1,18 @@
 // ============================================================
-// OTP SYSTEM (Supabase + Hostinger SMTP)
+// OTP SYSTEM (Supabase + Resend API)
 // ============================================================
 
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const supabase = require('./supabase');
 
-// ── Hostinger SMTP Configuration ──
-const smtpHost = process.env.SMTP_HOST || 'smtp.titan.email';
-const smtpPort = Number(process.env.SMTP_PORT) || 465;
-const smtpSecure = String(process.env.SMTP_SECURE || 'true').toLowerCase() === 'true';
-const smtpUser = process.env.SMTP_USER || 'support@roottolearn.com';
-const smtpPass = process.env.SMTP_PASS;
-const senderEmail = process.env.SMTP_FROM || smtpUser;
+// ── Resend Configuration ──
+const resendApiKey = process.env.RESEND_API_KEY;
+const senderEmail = process.env.FROM_EMAIL || 'support@roottolearn.com';
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-function createTransport(host, port, secure) {
-    return nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        requireTLS: !secure,
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-        auth: {
-            user: smtpUser,
-            pass: smtpPass
-        },
-        tls: {
-            servername: host,
-            minVersion: 'TLSv1.2'
-        }
-    });
-}
-
-const transportOptions = smtpPass ? [
-    { host: smtpHost, port: smtpPort, secure: smtpSecure, label: `${smtpHost}:${smtpPort} secure=${smtpSecure}` },
-    { host: smtpHost, port: 587, secure: false, label: `${smtpHost}:587 secure=false` },
-    { host: 'smtp.titan.email', port: 465, secure: true, label: 'smtp.titan.email:465 secure=true' },
-    { host: 'smtp.titan.email', port: 587, secure: false, label: 'smtp.titan.email:587 secure=false' }
-].filter((option, index, array) => index === array.findIndex((candidate) => {
-    return candidate.host === option.host && candidate.port === option.port && candidate.secure === option.secure;
-})) : [];
-
-console.log('📧 SMTP host:', smtpHost);
-console.log('📧 SMTP sender:', senderEmail);
-console.log('📧 SMTP configured:', smtpPass ? 'YES' : 'NO');
+console.log('📧 Resend configured:', resend ? 'YES' : 'NO');
+console.log('📧 Resend sender:', senderEmail);
 
 async function removeOTP(email, purpose) {
     await supabase
@@ -207,38 +174,26 @@ async function sendOTPEmail(email, purpose) {
     const otp = await createOTP(email, purpose);
 
     try {
-        if (!smtpPass) {
-            throw new Error('SMTP not configured. Set SMTP_PASS in Render env.');
+        if (!resend) {
+            throw new Error('Resend not configured. Set RESEND_API_KEY in Render env.');
         }
 
         const requestBody = {
             from: `RootToLearn <${senderEmail}>`,
-            to: email,
+            to: [email],
             subject: 'Your OTP Code',
             html: emailHTML(otp)
         };
 
-        console.log('📧 SMTP request body:', JSON.stringify(requestBody));
+        console.log('📧 Resend request body:', JSON.stringify(requestBody));
 
-        let response;
-        let lastError;
+        const response = await resend.emails.send(requestBody);
 
-        for (const option of transportOptions) {
-            try {
-                console.log(`📧 Trying SMTP transport ${option.label}`);
-                response = await createTransport(option.host, option.port, option.secure).sendMail(requestBody);
-                break;
-            } catch (transportError) {
-                lastError = transportError;
-                console.warn(`⚠️ SMTP transport failed (${option.label}): ${transportError.message}`);
-            }
+        if (response.error) {
+            throw new Error(response.error.message || JSON.stringify(response.error));
         }
 
-        if (!response) {
-            throw lastError || new Error('SMTP delivery failed');
-        }
-
-        console.log("✅ Email sent via SMTP, id:", response.messageId);
+        console.log("✅ Email sent via Resend, id:", response.data?.id);
         return { ok: true };
     } catch (err) {
         console.error("❌ Email error:", err.message);
