@@ -465,31 +465,41 @@ let USERS = [], SUMS = [], PAYS = [], ACTS = [], COUPONS = [];
 // ── Load all dashboard data
 async function loadStats() {
   try {
+    console.log('[LOADSTATS] Fetching /admin/stats...');
     const d = await apiFetch('/admin/stats');
+    console.log('[LOADSTATS] Response:', d);
     
     // Handle API response structure (stats is nested in response)
     const stats = d.stats || d;
+    console.log('[LOADSTATS] Stats object:', stats);
     
-    document.querySelector('.stat-val[style*="color:var(--accent)"]').textContent =
-      (stats.totalUsers||0).toLocaleString();
-    document.querySelector('.stat-val[style*="color:var(--teal)"]').textContent =
-      (stats.totalSummaries||stats.totalDocs||0).toLocaleString();
+    const totalUsers = stats.totalUsers || 0;
+    const totalSummaries = stats.totalSummaries || stats.totalDocs || 0;
     
-    // Calculate revenue from recent payments or amount_cents field
+    // Calculate revenue from recent payments
     let revenue = 0;
     if (stats.recentPayments && Array.isArray(stats.recentPayments)) {
       revenue = stats.recentPayments.reduce((sum, p) => sum + (p.amount_cents || p.amount || 0), 0);
+      console.log('[LOADSTATS] Revenue calculated from', stats.recentPayments.length, 'payments:', revenue);
     } else if (stats.revenueCents) {
       revenue = stats.revenueCents;
     }
+    
+    console.log('[LOADSTATS] Final values - Users:', totalUsers, 'Docs:', totalSummaries, 'Revenue:', revenue);
+    
+    document.querySelector('.stat-val[style*="color:var(--accent)"]').textContent =
+      totalUsers.toLocaleString();
+    document.querySelector('.stat-val[style*="color:var(--teal)"]').textContent =
+      totalSummaries.toLocaleString();
     document.querySelector('.stat-val[style*="color:var(--success)"]').textContent =
-      '₹' + ((revenue)/100).toLocaleString();
+      '₹' + (revenue / 100).toLocaleString();
     
     // Active coupons - will be set by renderCoupons()
     document.getElementById('ovCpnCnt').textContent = COUPONS.filter(c => c.is_active).length || 0;
+    console.log('[LOADSTATS] ✅ Stats loaded successfully');
   } catch (e) { 
-    console.error('Stats load failed:', e.message);
-    console.error('Full error:', e);
+    console.error('[LOADSTATS] ❌ Stats load failed:', e.message);
+    console.error('[LOADSTATS] Full error:', e);
     /* stay on mock stats */ 
   }
 }

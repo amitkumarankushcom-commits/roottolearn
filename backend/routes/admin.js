@@ -48,17 +48,19 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { count: totalUsers } = await supabase
       .from('users')
-      .select('COUNT(*)', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true });
 
     const { count: totalSummaries } = await supabase
       .from('summaries')
-      .select('COUNT(*)', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true });
 
-    const { data: recentPayments } = await supabase
+    const { data: recentPayments, error: paymentsError } = await supabase
       .from('payments')
-      .select('id, amount, status, created_at')
+      .select('id, amount_cents, status, created_at')
       .order('created_at', { ascending: false })
       .limit(10);
+
+    if (paymentsError) console.error('[STATS] Payments query error:', paymentsError);
 
     res.json({
       success: true,
