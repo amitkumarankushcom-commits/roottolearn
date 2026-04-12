@@ -190,12 +190,16 @@ async function sendOTPEmail(email, purpose) {
             throw new Error('Resend not configured. Set RESEND_API_KEY in Render env.');
         }
 
-        const response = await resend.emails.send({
-            from: `RootToLearn <${resolveSenderEmail()}>`,
+        const requestBody = {
+            from: `RootToLearn <amitkumarankush.com@gmail.com>`,
             to: [email],
             subject: 'Your OTP Code',
             html: emailHTML(otp)
-        });
+        };
+
+        console.log('📧 Resend request body:', JSON.stringify(requestBody));
+
+        const response = await resend.emails.send(requestBody);
 
         if (response.error) {
             throw new Error(response.error.message || JSON.stringify(response.error));
