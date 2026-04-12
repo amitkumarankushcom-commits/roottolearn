@@ -9,30 +9,29 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
-const supabase = require("./config/supabase");
 
-// ================= CREATE APP =================
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Trust proxy (for Render / proxies)
+// ================= TRUST PROXY =================
 app.set('trust proxy', 1);
 
 // ================= SECURITY =================
 app.use(helmet({ contentSecurityPolicy: false }));
 
-// ================= CORS CONFIG =================
-const corsOriginsList = (process.env.CORS_ORIGINS || '')
-  .split(',')
-  .map(origin => origin.trim())
-  .filter(origin => origin);
+// ================= CORS (FINAL FIX) =================
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://roottolearn.com'
+];
 
+// 🔥 IMPORTANT: this function handles all cases safely
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (Postman, mobile apps)
+    // Allow Postman / mobile apps / no-origin requests
     if (!origin) return callback(null, true);
 
-    if (corsOriginsList.includes(origin)) {
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     } else {
       console.log("❌ Blocked by CORS:", origin);
@@ -43,11 +42,8 @@ app.use(cors({
   credentials: true
 }));
 
-// Handle preflight requests
-app.options('*', cors({
-  origin: corsOriginsList,
-  credentials: true
-}));
+// Handle preflight (OPTIONS)
+app.options('*', cors());
 
 // ================= MIDDLEWARE =================
 app.use(compression());
@@ -64,7 +60,7 @@ app.use(rateLimit({
   message: { error: 'Too many requests. Try again later.' }
 }));
 
-// ================= DEBUG (OPTIONAL - REMOVE LATER) =================
+// ================= DEBUG (REMOVE LATER) =================
 app.use((req, res, next) => {
   console.log("🌐 Incoming Origin:", req.headers.origin);
   next();
@@ -78,7 +74,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/coupons', require('./routes/coupons'));
 
-// ================= 404 HANDLER =================
+// ================= 404 =================
 app.use((_, res) => {
   res.status(404).json({ error: 'Route not found.' });
 });
@@ -96,13 +92,10 @@ app.use((err, _, res, __) => {
 
 // ================= START SERVER =================
 const server = app.listen(PORT, () => {
-  console.log('═══════════════════════════════════════════════════');
-  console.log('✅ RootToLearn API Server Started');
-  console.log('═══════════════════════════════════════════════════');
-  console.log(`Port: ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Database: PostgreSQL/Supabase`);
-  console.log('═══════════════════════════════════════════════════');
+  console.log('═══════════════════════════════════════');
+  console.log('✅ Server Running');
+  console.log(`🌐 Port: ${PORT}`);
+  console.log('═══════════════════════════════════════');
 });
 
 // ================= ERROR HANDLING =================

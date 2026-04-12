@@ -38,8 +38,8 @@ window.APP_CONFIG = {
   },
 };
 
-// ================= DEBUG LOG =================
-console.log("✅ Config Loaded:", window.APP_CONFIG);
+// // ================= DEBUG LOG =================
+// console.log("✅ Config Loaded:", window.APP_CONFIG);
 
 // ================= OPTIONAL DEBUG =================
 if (window.APP_CONFIG.debug) {
