@@ -36,6 +36,9 @@ function hasUsableResendKey(apiKey) {
 }
 
 const resend = hasUsableResendKey(resendApiKey) ? new Resend(resendApiKey) : null;
+console.log('📧 Resend configured:', resend ? 'YES' : 'NO (missing or invalid RESEND_API_KEY)');
+console.log('📧 Sender email:', senderEmail || '(not set)');
+console.log('📧 Resolved sender:', resolveSenderEmail());
 
 async function removeOTP(email, purpose) {
     await supabase

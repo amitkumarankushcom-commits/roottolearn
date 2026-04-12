@@ -314,12 +314,13 @@ router.post('/forgot-password', async (req, res) => {
 
     // Always return success to prevent email enumeration
     if (!user) {
-      return res.json({ success: true });
+      return res.json({ success: true, step: 'verify' });
     }
 
     const emailResult = await sendOTPEmail(email, 'forgot');
     if (!emailResult.ok) {
       console.error('[FORGOT PASSWORD]', emailResult.error);
+      return res.status(500).json({ error: emailResult.error || 'Failed to send OTP' });
     }
 
     return res.json({ success: true, step: 'verify' });
