@@ -25,18 +25,70 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-function buildSummaryFromText(text, style = 'simple') {
+function buildSummaryFromText(text, style = 'simple', occupation = 'general') {
   const cleaned = String(text || '').replace(/\s+/g, ' ').trim();
   if (!cleaned) return '';
 
   const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (sentences.length === 0) return cleaned;
+
+  // Split into logical groups (intro, body, conclusion)
+  const total = sentences.length;
+  const introEnd = Math.max(1, Math.ceil(total * 0.2));
+  const bodyEnd = Math.max(introEnd + 1, Math.ceil(total * 0.75));
+
+  const intro = sentences.slice(0, introEnd);
+  const body = sentences.slice(introEnd, bodyEnd);
+  const conclusion = sentences.slice(bodyEnd);
+
+  const parts = [];
+
   if (style === 'bullets') {
-    return sentences.slice(0, 6).map(s => `- ${s}`).join('\n');
+    parts.push('## Overview');
+    intro.forEach(s => parts.push(`- ${s}`));
+    if (body.length) {
+      parts.push('');
+      parts.push('## Key Points');
+      body.forEach(s => parts.push(`- ${s}`));
+    }
+    if (conclusion.length) {
+      parts.push('');
+      parts.push('## Conclusion');
+      conclusion.forEach(s => parts.push(`- ${s}`));
+    }
+  } else if (style === 'detailed') {
+    parts.push('## Overview');
+    parts.push(intro.join(' '));
+    if (body.length) {
+      parts.push('');
+      parts.push('## Detailed Analysis');
+      // Group body sentences into paragraphs of 3
+      for (let i = 0; i < body.length; i += 3) {
+        parts.push(body.slice(i, i + 3).join(' '));
+      }
+    }
+    if (conclusion.length) {
+      parts.push('');
+      parts.push('## Summary & Takeaways');
+      parts.push(conclusion.join(' '));
+    }
+  } else {
+    // simple
+    parts.push('## Overview');
+    parts.push(intro.join(' '));
+    if (body.length) {
+      parts.push('');
+      parts.push('## Main Points');
+      body.forEach(s => parts.push(`- ${s}`));
+    }
+    if (conclusion.length) {
+      parts.push('');
+      parts.push('## Conclusion');
+      parts.push(conclusion.join(' '));
+    }
   }
-  if (style === 'detailed') {
-    return sentences.slice(0, 10).join(' ');
-  }
-  return sentences.slice(0, 4).join(' ');
+
+  return parts.join('\n');
 }
 
 // ── GET /api/summaries
@@ -88,7 +140,7 @@ router.post('/', authenticateToken, async (req, res) => {
     const { title, text, language, occupation, style, model } = req.body;
 
     const fileName = title || `Summary ${new Date().toLocaleString()}`;
-    const summaryText = buildSummaryFromText(text, style);
+    const summaryText = buildSummaryFromText(text, style, occupation);
 
     if (!summaryText) {
       return res.status(400).json({ error: 'Text content is required' });
