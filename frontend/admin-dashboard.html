@@ -408,15 +408,45 @@
 <div class="toast" id="toast"><span id="tIcon">✅</span><span class="toast-txt" id="tTxt">Done!</span></div>
 
 <script>
-// ── API is already defined in api.js (loaded before this script)
+// ── API Configuration (Admin Dashboard - do NOT use user api.js)
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:4000/api'
+  : 'https://roottolearn-backend.onrender.com/api';
+
 const token = localStorage.getItem('siq_admin_token');
 const hdrs = { 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` };
 
+console.log('[ADMIN DASHBOARD] Token:', token ? token.slice(0, 30) + '...' : 'none', 'API URL:', API);
+
 async function apiFetch(path, opts = {}) {
-  const r = await fetch(`${API}${path}`, { ...opts, headers: { ...hdrs, ...(opts.headers||{}) } });
-  if (r.status === 401) { localStorage.removeItem('siq_admin_token'); location.href = 'admin-login.html'; }
+  if (!token) {
+    console.error('[ADMIN APIFETCH] ❌ No admin token found! Redirecting to login...');
+    localStorage.removeItem('siq_admin_token');
+    location.href = 'admin-login.html';
+    return;
+  }
+  
+  const url = `${API}${path}`;
+  const requestHeaders = { ...hdrs, ...(opts.headers||{}) };
+  console.log(`[ADMIN APIFETCH] ${opts.method || 'GET'} ${url}`, 'Headers:', { Authorization: 'Bearer ' + token.slice(0,20) + '...' });
+  
+  const r = await fetch(url, { ...opts, headers: requestHeaders });
+  
+  console.log(`[ADMIN APIFETCH] Response: ${r.status}`, url);
+  
+  if (r.status === 401) { 
+    console.error('[ADMIN APIFETCH] ❌ 401 Unauthorized - Token invalid');
+    localStorage.removeItem('siq_admin_token'); 
+    location.href = 'admin-login.html'; 
+  }
+  
+  if (r.status === 403) {
+    console.error('[ADMIN APIFETCH] ❌ 403 Forbidden - Admin access required');
+    console.error('[ADMIN APIFETCH] Token payload:', JSON.parse(atob(token.split('.')[1])));
+  }
+  
   const txt = await r.text();
-  if (!r.ok) throw new Error(txt || `HTTP ${r.status}`);
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${txt || 'No error message'}`);
   try { return JSON.parse(txt); } catch { return txt; }
 }
 
@@ -513,9 +543,7 @@ document.getElementById('sbName').textContent = adminUser.name;
 document.getElementById('sbRole').textContent = adminUser.adminRole||'admin';
 document.getElementById('pgTs').textContent = new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'full',timeStyle:'short'});
 
-// NOTE: Data loading is deferred to after api.js loads (see end of document)
-
-// Charts
+// ── Charts initialization
 let chartsInit=false;
 function initCharts(){
   if(chartsInit)return; chartsInit=true;
@@ -962,10 +990,10 @@ function doLogout(){localStorage.removeItem('siq_admin_token');localStorage.remo
 
 // Init — data loaded via loadAll()/loadStats() above
 </script>
-<script src="/config.js"></script>
-<script src="/assets/js/api.js?v=2"></script>
-<!-- Load dashboard data after all external scripts are loaded -->
+<!-- NOTE: Do NOT load /assets/js/api.js here - it's for user auth, not admin auth -->
+<!-- Load dashboard data after inline scripts are ready -->
 <script>
+  console.log('[ADMIN DASHBOARD] Starting data load...');
   loadStats();
   loadAll();
 </script>
