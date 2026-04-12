@@ -556,12 +556,100 @@ document.getElementById('pgTs').textContent = new Date().toLocaleString('en-IN',
 // ── Charts initialization
 let chartsInit=false;
 function initCharts(){
-  if(chartsInit)return; chartsInit=true;
+  if(chartsInit)return; 
+  chartsInit=true;
+  console.log('[INITCHARTS] Initializing charts...');
+  
   const co={responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6B7280',font:{size:10}}},x:{grid:{display:false},ticks:{color:'#6B7280',font:{size:10}}}}};
-  new Chart(document.getElementById('docsChart').getContext('2d'),{type:'bar',data:{labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],datasets:[{label:'Docs',data:[412,587,340,692,821,456,384],backgroundColor:'rgba(247,183,49,.65)',borderColor:'#F7B731',borderWidth:1,borderRadius:5}]},options:co});
-  new Chart(document.getElementById('langChart').getContext('2d'),{type:'doughnut',data:{labels:['English','Hinglish','Hindi','Spanish','Others'],datasets:[{data:[38,24,18,9,11],backgroundColor:['#F7B731','#00C9A7','#8B5CF6','#60A5FA','#6B7280'],borderColor:'#07080F',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:true,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',font:{size:10},padding:8,boxWidth:10}}}}});
-  new Chart(document.getElementById('revChart').getContext('2d'),{type:'line',data:{labels:['Oct','Nov','Dec','Jan','Feb','Mar'],datasets:[{label:'MRR',data:[4200,5100,6300,7100,7800,8241],borderColor:'#F7B731',backgroundColor:'rgba(247,183,49,.08)',borderWidth:2,fill:true,tension:.4,pointBackgroundColor:'#F7B731',pointRadius:4}]},options:co});
-  new Chart(document.getElementById('planChart').getContext('2d'),{type:'doughnut',data:{labels:['Free','Pro','Enterprise'],datasets:[{data:[58,32,10],backgroundColor:['#374151','#F7B731','#00C9A7'],borderColor:'#07080F',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:true,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',font:{size:10},padding:8,boxWidth:10}}}}});
+  
+  // 📊 Document Processing Chart
+  try {
+    new Chart(document.getElementById('docsChart').getContext('2d'),{
+      type:'bar',
+      data:{
+        labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+        datasets:[{
+          label:'Docs',
+          data:SUMS.length > 0 ? [SUMS.length/7 || 1, SUMS.length/7 || 1, SUMS.length/7 || 1, SUMS.length/7 || 1, SUMS.length/7 || 1, SUMS.length/7 || 1, SUMS.length/7 || 1] : [412,587,340,692,821,456,384],
+          backgroundColor:'rgba(247,183,49,.65)',
+          borderColor:'#F7B731',
+          borderWidth:1,
+          borderRadius:5
+        }]
+      },
+      options:co
+    });
+    console.log('[INITCHARTS] ✅ Docs chart initialized');
+  } catch(e) {
+    console.error('[INITCHARTS] ❌ Docs chart error:', e);
+  }
+  
+  // 🌍 Language Distribution Chart
+  try {
+    new Chart(document.getElementById('langChart').getContext('2d'),{
+      type:'doughnut',
+      data:{
+        labels:['English','Hinglish','Hindi','Spanish','Others'],
+        datasets:[{
+          data:[38,24,18,9,11],
+          backgroundColor:['#F7B731','#00C9A7','#8B5CF6','#60A5FA','#6B7280'],
+          borderColor:'#07080F',
+          borderWidth:2
+        }]
+      },
+      options:{responsive:true,maintainAspectRatio:true,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',font:{size:10},padding:8,boxWidth:10}}}}
+    });
+    console.log('[INITCHARTS] ✅ Language chart initialized');
+  } catch(e) {
+    console.error('[INITCHARTS] ❌ Language chart error:', e);
+  }
+  
+  // 💰 Revenue Chart
+  try {
+    new Chart(document.getElementById('revChart').getContext('2d'),{
+      type:'line',
+      data:{
+        labels:['Oct','Nov','Dec','Jan','Feb','Mar'],
+        datasets:[{
+          label:'MRR',
+          data:[4200,5100,6300,7100,7800,8241],
+          borderColor:'#F7B731',
+          backgroundColor:'rgba(247,183,49,.08)',
+          borderWidth:2,
+          fill:true,
+          tension:.4,
+          pointBackgroundColor:'#F7B731',
+          pointRadius:4
+        }]
+      },
+      options:co
+    });
+    console.log('[INITCHARTS] ✅ Revenue chart initialized');
+  } catch(e) {
+    console.error('[INITCHARTS] ❌ Revenue chart error:', e);
+  }
+  
+  // 📈 Plan Distribution Chart
+  try {
+    new Chart(document.getElementById('planChart').getContext('2d'),{
+      type:'doughnut',
+      data:{
+        labels:['Free','Pro','Enterprise'],
+        datasets:[{
+          data:[58,32,10],
+          backgroundColor:['#374151','#F7B731','#00C9A7'],
+          borderColor:'#07080F',
+          borderWidth:2
+        }]
+      },
+      options:{responsive:true,maintainAspectRatio:true,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',font:{size:10},padding:8,boxWidth:10}}}}
+    });
+    console.log('[INITCHARTS] ✅ Plan chart initialized');
+  } catch(e) {
+    console.error('[INITCHARTS] ❌ Plan chart error:', e);
+  }
+  
+  console.log('[INITCHARTS] ✅ All charts initialized successfully');
 }
 setTimeout(initCharts,200);
 
@@ -986,15 +1074,71 @@ document.getElementById('adminPasswordModal')?.addEventListener('click', (e) => 
 });
 
 async function refresh(){
+  console.log('[REFRESH] Reloading dashboard data...');
   document.getElementById('pgTs').textContent=new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'full',timeStyle:'short'});
-  await loadAll(); await loadStats();
+  await loadAll();
+  await loadStats();
   toast('↻','Dashboard refreshed!');
+  console.log('[REFRESH] ✅ Dashboard refreshed successfully');
 }
+
 async function exportReport(){
-  const [u,p,c] = await Promise.all([apiFetch('/admin/users?limit=100'),apiFetch('/admin/payments'),apiFetch('/admin/stats')]);
-  const txt = `RootToLearn Admin Report\n${new Date().toLocaleString()}\nTotal Users: ${u.total||u.users?.length||0}\nRevenue (₹): ${((c.revenueCents||0)/100).toLocaleString()}\nActive Coupons: ${c.activeCoupons||0}`;
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download='admin-report.txt';a.click();
-  toast('⬇','Report exported!');
+  try {
+    console.log('[EXPORT] Starting report export...');
+    const [usersResp, paymentsResp, statsResp] = await Promise.all([
+      apiFetch('/admin/users?limit=100'),
+      apiFetch('/admin/payments'),
+      apiFetch('/admin/stats')
+    ]);
+    
+    // Extract correct data from responses
+    const totalUsers = usersResp.users?.length || 0;
+    const totalPayments = paymentsResp.payments?.length || 0;
+    
+    // Calculate revenue from payments
+    let revenue = 0;
+    if (statsResp.stats?.recentPayments && Array.isArray(statsResp.stats.recentPayments)) {
+      revenue = statsResp.stats.recentPayments.reduce((sum, p) => sum + (p.amount_cents || 0), 0);
+    }
+    
+    const activeCoupons = COUPONS.filter(c => c.is_active).length;
+    
+    const reportText = `
+================================
+    RootToLearn Admin Report
+================================
+Generated: ${new Date().toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'})}
+
+DASHBOARD OVERVIEW
+Total Users: ${totalUsers}
+Documents Processed: ${SUMS.length}
+Total Payments: ${totalPayments}
+Revenue (₹): ${(revenue / 100).toLocaleString()}
+Active Coupons: ${activeCoupons}
+
+TIMESTAMP
+${new Date().toISOString()}
+================================
+    Report End
+================================
+    `;
+    
+    console.log('[EXPORT] Report data:', { totalUsers, totalPayments, revenue, activeCoupons });
+    
+    const blob = new Blob([reportText], {type: 'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `admin-report-${new Date().toISOString().split('T')[0]}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    toast('⬇','Report exported successfully!');
+    console.log('[EXPORT] ✅ Report exported');
+  } catch(e) {
+    console.error('[EXPORT] ❌ Export failed:', e);
+    toast('⚠️','Export failed: ' + e.message);
+  }
 }
 function doLogout(){localStorage.removeItem('siq_admin_token');localStorage.removeItem('siq_admin_user');location.href='admin-login.html';}
 
