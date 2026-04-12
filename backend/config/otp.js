@@ -93,8 +93,9 @@ async function verifyOTP(email, token, purpose, consume = true) {
 
     console.log("🔍 VERIFY:", { email, purpose });
 
+    let data;
     try {
-        const { data, error } = await supabase
+        const result = await supabase
             .from('otp_tokens')
             .select('*')
             .eq('target', email)
@@ -103,12 +104,14 @@ async function verifyOTP(email, token, purpose, consume = true) {
             .order('created_at', { ascending: false })
             .maybeSingle(); // Get 0 or 1 row
 
-        console.log("🔍 DB RESULT:", { data, error, email, purpose });
+        console.log("🔍 DB RESULT:", { data: result.data, error: result.error, email, purpose });
 
-        if (error) {
-            console.error("❌ DB Query Error:", error.message);
-            throw error;
+        if (result.error) {
+            console.error("❌ DB Query Error:", result.error.message);
+            return { ok: false, error: 'Database error: ' + result.error.message };
         }
+
+        data = result.data;
 
         if (!data) {
             console.log("❌ OTP not found for:", email);

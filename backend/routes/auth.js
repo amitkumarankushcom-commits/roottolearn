@@ -147,32 +147,54 @@ router.post('/login/verify', async (req, res) => {
     // Try to fetch with role column; if it doesn't exist, fall back
     let user;
     let userError;
+    let attempts = 0;
+    const maxAttempts = 2;
     
-    try {
-      const { data: userData, error: roleError } = await supabase
-        .from('users')
-        .select('id, email, name, role')
-        .eq('email', email)
-        .maybeSingle();
+    while (attempts < maxAttempts && !user) {
+      attempts++;
       
-      user = userData;
-      userError = roleError;
-    } catch (e) {
-      // If role column doesn't exist, fetch without it
-      console.log('[VERIFY OTP] Fetching without role column');
-      const { data: userData, error: noRoleError } = await supabase
-        .from('users')
-        .select('id, email, name')
-        .eq('email', email)
-        .maybeSingle();
-      
-      user = userData;
-      userError = noRoleError;
+      try {
+        let query = supabase
+          .from('users')
+          .select('id, email, name' + (attempts === 1 ? ', role' : ''))
+          .eq('email', email);
+        
+        const result = await query.maybeSingle();
+        user = result.data;
+        userError = result.error;
+        
+        console.log(`[VERIFY OTP] Attempt ${attempts} - user lookup:`, { email, userError, user, hasRole: attempts === 1 });
+        
+        if (!userError && user) {
+          break; // Success, exit loop
+        }
+        
+        if (userError && userError.message && userError.message.includes('undefined column')) {
+          console.log('[VERIFY OTP] Role column not found, retrying without it');
+          continue; // Try again without role
+        }
+        
+        if (userError) {
+          console.error('[VERIFY OTP] Query error:', userError);
+          break; // Exit on other errors
+        }
+        
+      } catch (e) {
+        console.error(`[VERIFY OTP] Attempt ${attempts} catch error:`, e.message);
+        if (attempts < maxAttempts) {
+          continue;
+        }
+      }
     }
 
-    console.log('[VERIFY OTP] user lookup:', { email, userError, user });
-    if (userError || !user) {
-      return res.status(500).json({ error: 'User not found' });
+    if (userError) {
+      console.error('[VERIFY OTP] Final user lookup error:', userError.message);
+      return res.status(400).json({ error: 'Failed to retrieve user profile' });
+    }
+    
+    if (!user) {
+      console.log('[VERIFY OTP] User not found after verification:', email);
+      return res.status(400).json({ error: 'User not found after OTP verification' });
     }
 
     const token = generateToken(user.id, user.email, user.role || 'user');
