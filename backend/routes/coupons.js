@@ -56,7 +56,7 @@ router.post('/validate', authenticateToken, async (req, res) => {
     }
 
     // Check if expired
-    if (new Date(coupon.expires_at) < new Date()) {
+    if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
       return res.status(400).json({ error: 'Coupon expired' });
     }
 
@@ -74,9 +74,9 @@ router.post('/validate', authenticateToken, async (req, res) => {
       success: true,
       coupon: {
         code: coupon.code,
-        discountPercentage: coupon.discount_percentage,
+        discountPercentage: coupon.discount_pct,
         maxUses: coupon.max_uses,
-        expiresAt: coupon.expires_at
+        expiresAt: coupon.valid_until
       }
     });
 
@@ -160,12 +160,12 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       .from('coupons')
       .insert([{
         code: code.toUpperCase(),
-        discount_percentage: discount_pct,
         discount_pct: discount_pct,
         max_uses: max_uses || 9999,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+        uses_count: 0,
+        is_active: 1,
+        valid_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        created_at: new Date().toISOString()
       }])
       .select()
       .single();
@@ -197,9 +197,10 @@ router.patch('/:id/toggle', authenticateToken, requireAdmin, async (req, res) =>
     }
 
     // Toggle status
+    const newStatus = coupon.is_active ? 0 : 1;
     const { data: updated, error } = await supabase
       .from('coupons')
-      .update({ is_active: !coupon.is_active })
+      .update({ is_active: newStatus })
       .eq('id', id)
       .select()
       .single();
