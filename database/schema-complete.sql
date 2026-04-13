@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
   profile_image   TEXT          DEFAULT NULL,
   bio             TEXT          DEFAULT NULL,
   preferences     JSONB         DEFAULT '{}',
+  session_token   VARCHAR(64)   DEFAULT NULL,
   last_login      TIMESTAMP     DEFAULT NULL,
   created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP

@@ -12,13 +12,16 @@ const { sendOTPEmail, verifyOTP } = require('../config/otp');
 
 const OTP_MAX_ATTEMPTS = 5;
 
-const generateToken = (userId, email, name = '', plan = 'free', role = 'user') => {
+const generateSessionToken = () => crypto.randomBytes(32).toString('hex');
+
+const generateToken = (userId, email, name = '', plan = 'free', role = 'user', sessionToken = '') => {
   const payload = { 
     id: userId, 
     email, 
     name: name || '',
     plan: plan || 'free',
-    role: role || 'user'
+    role: role || 'user',
+    ses: sessionToken
   };
   console.log('[GENERATE TOKEN] Payload:', payload);
   return jwt.sign(
@@ -212,7 +215,11 @@ router.post('/login/verify', async (req, res) => {
 
     console.log('[VERIFY OTP] Token data:', { userName, userPlan, userRole, originalUser: user });
 
-    const token = generateToken(user.id, user.email, userName, userPlan, userRole);
+    // Single-device login: generate session token and store in DB
+    const sessionToken = generateSessionToken();
+    await supabase.from('users').update({ session_token: sessionToken, last_login: new Date().toISOString() }).eq('id', user.id);
+
+    const token = generateToken(user.id, user.email, userName, userPlan, userRole, sessionToken);
 
     return res.json({
       success: true,
@@ -339,7 +346,11 @@ router.post('/verify-email', async (req, res) => {
 
     console.log('[VERIFY EMAIL] Token data:', { userName, userPlan, userRole, originalUser: user });
 
-    const token = generateToken(user.id, user.email, userName, userPlan, userRole);
+    // Single-device login: generate session token and store in DB
+    const sessionToken = generateSessionToken();
+    await supabase.from('users').update({ session_token: sessionToken, last_login: new Date().toISOString() }).eq('id', user.id);
+
+    const token = generateToken(user.id, user.email, userName, userPlan, userRole, sessionToken);
 
     return res.json({
       success: true,
@@ -594,8 +605,14 @@ router.post('/refresh', async (req, res) => {
       return res.status(403).json({ error: 'Invalid refresh token' });
     }
 
-    // Issue new access token
-    const access = generateToken(decoded.id, decoded.email, decoded.name || '', decoded.plan || 'free', decoded.role || 'user');
+    // Check session token is still valid in DB
+    const { data: dbUser } = await supabase.from('users').select('session_token').eq('id', decoded.id).single();
+    if (!dbUser || dbUser.session_token !== decoded.ses) {
+      return res.status(403).json({ error: 'Session expired — logged in on another device', code: 'SESSION_REPLACED' });
+    }
+
+    // Issue new access token with same session token
+    const access = generateToken(decoded.id, decoded.email, decoded.name || '', decoded.plan || 'free', decoded.role || 'user', decoded.ses || '');
 
     return res.json({ access });
 

@@ -99,8 +99,18 @@ async function apiFetch(path, opts={}) {
       }
     }
     
-    // Handle 403 (Forbidden) - likely invalid/expired token
+    // Handle 403 (Forbidden) - check for session replaced (logged in on another device)
     if (res.status === 403) {
+      try {
+        const body = await res.clone().json();
+        if (body.code === 'SESSION_REPLACED') {
+          console.warn('[API] Session replaced — logged in on another device');
+          clearTokens();
+          alert('You have been logged out because your account was logged in on another device.');
+          window.location.href = '/login.html';
+          return null;
+        }
+      } catch (_) {}
       console.warn('[API 403 FORBIDDEN]', path, '- clearing tokens and redirecting to login');
       clearTokens();
       window.location.href = '/login.html';
