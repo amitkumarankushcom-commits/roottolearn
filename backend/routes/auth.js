@@ -216,8 +216,14 @@ router.post('/login/verify', async (req, res) => {
     console.log('[VERIFY OTP] Token data:', { userName, userPlan, userRole, originalUser: user });
 
     // Single-device login: generate session token and store in DB
-    const sessionToken = generateSessionToken();
-    await supabase.from('users').update({ session_token: sessionToken, last_login: new Date().toISOString() }).eq('id', user.id);
+    let sessionToken = '';
+    try {
+      sessionToken = generateSessionToken();
+      await supabase.from('users').update({ session_token: sessionToken, last_login: new Date().toISOString() }).eq('id', user.id);
+    } catch (sesErr) {
+      console.warn('[VERIFY OTP] Session token update failed (column may not exist yet):', sesErr.message);
+      sessionToken = '';
+    }
 
     const token = generateToken(user.id, user.email, userName, userPlan, userRole, sessionToken);
 
@@ -347,8 +353,14 @@ router.post('/verify-email', async (req, res) => {
     console.log('[VERIFY EMAIL] Token data:', { userName, userPlan, userRole, originalUser: user });
 
     // Single-device login: generate session token and store in DB
-    const sessionToken = generateSessionToken();
-    await supabase.from('users').update({ session_token: sessionToken, last_login: new Date().toISOString() }).eq('id', user.id);
+    let sessionToken = '';
+    try {
+      sessionToken = generateSessionToken();
+      await supabase.from('users').update({ session_token: sessionToken, last_login: new Date().toISOString() }).eq('id', user.id);
+    } catch (sesErr) {
+      console.warn('[VERIFY EMAIL] Session token update failed (column may not exist yet):', sesErr.message);
+      sessionToken = '';
+    }
 
     const token = generateToken(user.id, user.email, userName, userPlan, userRole, sessionToken);
 
@@ -605,10 +617,16 @@ router.post('/refresh', async (req, res) => {
       return res.status(403).json({ error: 'Invalid refresh token' });
     }
 
-    // Check session token is still valid in DB
-    const { data: dbUser } = await supabase.from('users').select('session_token').eq('id', decoded.id).single();
-    if (!dbUser || dbUser.session_token !== decoded.ses) {
-      return res.status(403).json({ error: 'Session expired — logged in on another device', code: 'SESSION_REPLACED' });
+    // Check session token is still valid in DB (skip if no session token in JWT)
+    if (decoded.ses) {
+      try {
+        const { data: dbUser } = await supabase.from('users').select('session_token').eq('id', decoded.id).single();
+        if (dbUser && dbUser.session_token !== decoded.ses) {
+          return res.status(403).json({ error: 'Session expired — logged in on another device', code: 'SESSION_REPLACED' });
+        }
+      } catch (sesErr) {
+        console.warn('[REFRESH] Session check failed (column may not exist):', sesErr.message);
+      }
     }
 
     // Issue new access token with same session token
