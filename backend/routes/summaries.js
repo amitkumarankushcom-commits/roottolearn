@@ -24,6 +24,12 @@ const deepseekClient = process.env.DEEPSEEK_API_KEY
 const anthropicClient = process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY !== 'dummy'
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
+
+// Groq client for free Whisper transcription (OpenAI-compatible API)
+const groqClient = process.env.GROQ_API_KEY
+  ? new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' })
+  : null;
+
 const upload = multer({
   dest: path.join(__dirname, '..', 'tmp'),
   limits: { fileSize: 100 * 1024 * 1024 },
@@ -376,8 +382,8 @@ router.post('/transcribe', authenticateToken, upload.single('audio'), async (req
   const filePath = req.file.path;
 
   try {
-    if (!openaiClient) {
-      return res.status(503).json({ error: 'Audio transcription is not configured. Set OPENAI_API_KEY in environment.' });
+    if (!openaiClient && !groqClient) {
+      return res.status(503).json({ error: 'Audio transcription is not configured. Set OPENAI_API_KEY or GROQ_API_KEY in environment.' });
     }
 
     // Rename temp file to include original extension (Whisper needs it)
@@ -385,17 +391,42 @@ router.post('/transcribe', authenticateToken, upload.single('audio'), async (req
     const namedPath = filePath + ext;
     fs.renameSync(filePath, namedPath);
 
-    const transcription = await openaiClient.audio.transcriptions.create({
-      file: fs.createReadStream(namedPath),
-      model: 'whisper-1',
-      response_format: 'text',
-    });
+    // Try transcription providers in order: Groq (free) → OpenAI
+    let text = '';
+    let lastError = null;
+
+    const providers = [
+      { name: 'Groq', client: groqClient, model: 'whisper-large-v3-turbo' },
+      { name: 'OpenAI', client: openaiClient, model: 'whisper-1' },
+    ];
+
+    for (const provider of providers) {
+      if (!provider.client) continue;
+      try {
+        console.log(`[TRANSCRIBE] Trying ${provider.name} Whisper...`);
+        const transcription = await provider.client.audio.transcriptions.create({
+          file: fs.createReadStream(namedPath),
+          model: provider.model,
+          response_format: 'text',
+        });
+        text = typeof transcription === 'string' ? transcription : transcription.text || '';
+        if (text.trim()) {
+          console.log(`[TRANSCRIBE] ${provider.name} succeeded (${text.length} chars)`);
+          break;
+        }
+      } catch (err) {
+        console.warn(`[TRANSCRIBE] ${provider.name} failed:`, err.message);
+        lastError = err;
+      }
+    }
 
     // Clean up temp file
     fs.unlink(namedPath, () => {});
 
-    const text = typeof transcription === 'string' ? transcription : transcription.text || '';
     if (!text.trim()) {
+      if (lastError && lastError.status === 401) {
+        return res.status(503).json({ error: 'API key invalid. Set a valid GROQ_API_KEY (free at console.groq.com) or OPENAI_API_KEY.' });
+      }
       return res.status(422).json({ error: 'Could not transcribe audio. The file may be empty or inaudible.' });
     }
 
@@ -407,10 +438,6 @@ router.post('/transcribe', authenticateToken, upload.single('audio'), async (req
     try { fs.unlinkSync(filePath + path.extname(req.file.originalname)); } catch {}
 
     console.error('[TRANSCRIBE ERROR]', error);
-
-    if (error.status === 401) {
-      return res.status(503).json({ error: 'Audio/video transcription requires a valid OpenAI API key (Whisper). This is separate from the AI model selection. Please set a valid OPENAI_API_KEY or use a PDF/text file instead.' });
-    }
     res.status(500).json({ error: 'Transcription failed: ' + (error.message || 'Unknown error') });
   }
 });
