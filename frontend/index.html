@@ -233,6 +233,7 @@
       <span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span>
       <div class="user-av" onclick="location.href='profile.html'">${init}</div>`;
         initAds(u.plan);
+        hideProPurchaseUI();
       } else {
         console.warn('[APP] User logged in but name missing:', u);
         initAds('free');

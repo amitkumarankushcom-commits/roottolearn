@@ -199,3 +199,29 @@ function togglePassword(id) {
   const btn = input.parentElement.querySelector('.toggle-pass');
   if (btn) btn.textContent = type === 'password' ? '👁️' : '🙈';
 }
+
+// ── Hide purchase/upgrade UI for paid users (call on every page with navbar)
+function hideProPurchaseUI() {
+  const u = getUser();
+  if (!u) return;
+  const plan = u.plan || 'free';
+  if (plan === 'pro' || plan === 'enterprise') {
+    // Hide pricing nav link
+    document.querySelectorAll('.nl').forEach(btn => {
+      if (btn.textContent.trim() === 'Pricing') btn.style.display = 'none';
+    });
+    // Hide any element with these IDs
+    ['navPricing', 'upgradeLink', 'upgradeBar', 'limitBanner', 'limitOverlay'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    // Hide pricing sections, ad slots, upgrade bars
+    document.querySelectorAll('.price-grid, .ad-slot, .upgrade-bar, .coupon-box').forEach(el => {
+      el.style.display = 'none';
+    });
+    // Hide "Get Started" / signup buttons in navbar (already logged in + paid)
+    document.querySelectorAll('.nav-right .btn-accent').forEach(btn => {
+      if (btn.textContent.trim() === 'Get Started') btn.style.display = 'none';
+    });
+  }
+}

@@ -84,7 +84,7 @@ const COUPONS={SAVE20:20,LAUNCH50:50,STUDENT30:30,FREEMONTH:100,WELCOME15:15};
 const PRICES={pro:849,enterprise:2499};
 let discount=0,curPay={plan:'pro',price:849},appliedCouponCode='';
 const u=getUser();
-if(u && u.name){const init=u.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);document.getElementById('navRight').innerHTML=`<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av" onclick="location.href='profile.html'">${init}</div>`;initAds(u.plan);}else{initAds('free');}
+if(u && u.name){const init=u.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);document.getElementById('navRight').innerHTML=`<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av" onclick="location.href='profile.html'">${init}</div>`;initAds(u.plan);hideProPurchaseUI();}else{initAds('free');}
 function applyCpn(){
   const c=document.getElementById('cpnIn').value.trim().toUpperCase();
   const msg=document.getElementById('cpnMsg');

@@ -58,6 +58,7 @@ if(u && u.name){
   document.getElementById('ps3').textContent=Math.round(docs*.25)+'h';
   document.getElementById('ps4').textContent=u.plan==='free'?`${3-docs}/3`:'∞';
   document.getElementById('navRight').innerHTML=`<span style="font-size:.8rem;color:var(--muted)">Hi, ${u.name.split(' ')[0]}</span><div class="user-av">${init}</div>`;
+  hideProPurchaseUI();
 } else {
   console.warn('[PROFILE] User logged in but data missing:', u);
 }

@@ -36,12 +36,12 @@
     <div class="ap">
       <div class="ap-title">Upload Document <span class="badge-sm">AI-Powered</span></div>
       <div class="upload-zone" id="upZone" ondragover="ondov(event)" ondragleave="ondlv()" ondrop="ondrp(event)">
-        <input type="file" id="fileIn" accept=".pdf,.ppt,.pptx,.mp3,.wav,.m4a,.ogg" onchange="onFS(event)">
+        <input type="file" id="fileIn" accept=".pdf,.ppt,.pptx,.mp3,.wav,.m4a,.ogg,.mp4,.webm,.mpeg" onchange="onFS(event)">
         <div class="upload-icon">📂</div>
         <h3>Drop your file here</h3>
         <p>or click to browse</p>
         <div class="ftypes"><span class="ft ft-pdf">PDF</span><span class="ft ft-ppt">PPT/PPTX</span><span
-            class="ft ft-aud">MP3 WAV M4A</span></div>
+            class="ft ft-aud">MP3 WAV MP4</span></div>
       </div>
       <div class="file-prev" id="filePrev">
         <div class="fthumb" id="fthumb"></div>
@@ -282,6 +282,7 @@
           } else { updateUsage(u.plan, parseInt(localStorage.getItem('siq_docs') || '0')); }
         } catch { updateUsage(u.plan, parseInt(localStorage.getItem('siq_docs') || '0')); }
       })();
+      hideProPurchaseUI();
     } else { updateUsage('free', 0); initAds('free'); }
     function updateUsage(plan, used) {
       const isFree = plan === 'free';
@@ -310,7 +311,7 @@
     function ondlv() { document.getElementById('upZone').classList.remove('drag'); }
     function ondrp(e) { e.preventDefault(); document.getElementById('upZone').classList.remove('drag'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }
     function onFS(e) { if (e.target.files[0]) handleFile(e.target.files[0]); }
-    function handleFile(f) { S.file = f; const ext = f.name.split('.').pop().toLowerCase(); const icons = { pdf: '📄', ppt: '📊', pptx: '📊', mp3: '🎵', wav: '🎵', m4a: '🎵', ogg: '🎵' }; const cols = { pdf: 'rgba(255,71,87,.15)', ppt: 'rgba(255,152,0,.15)', pptx: 'rgba(255,152,0,.15)', mp3: 'rgba(0,201,167,.15)', wav: 'rgba(0,201,167,.15)', m4a: 'rgba(0,201,167,.15)' }; document.getElementById('fthumb').textContent = icons[ext] || '📁'; document.getElementById('fthumb').style.background = cols[ext] || 'var(--surface2)'; document.getElementById('fname').textContent = f.name; document.getElementById('fsize').textContent = fmtBytes(f.size); document.getElementById('filePrev').classList.add('show'); }
+    function handleFile(f) { S.file = f; const ext = f.name.split('.').pop().toLowerCase(); const icons = { pdf: '📄', ppt: '📊', pptx: '📊', mp3: '🎵', wav: '🎵', m4a: '🎵', ogg: '🎵', mp4: '🎬', webm: '🎬', mpeg: '🎵', mpga: '🎵' }; const cols = { pdf: 'rgba(255,71,87,.15)', ppt: 'rgba(255,152,0,.15)', pptx: 'rgba(255,152,0,.15)', mp3: 'rgba(0,201,167,.15)', wav: 'rgba(0,201,167,.15)', m4a: 'rgba(0,201,167,.15)', mp4: 'rgba(96,165,250,.15)', webm: 'rgba(96,165,250,.15)', ogg: 'rgba(0,201,167,.15)' }; document.getElementById('fthumb').textContent = icons[ext] || '📁'; document.getElementById('fthumb').style.background = cols[ext] || 'var(--surface2)'; document.getElementById('fname').textContent = f.name; document.getElementById('fsize').textContent = fmtBytes(f.size); document.getElementById('filePrev').classList.add('show'); }
     function remFile() { S.file = null; document.getElementById('filePrev').classList.remove('show'); document.getElementById('fileIn').value = ''; }
     function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; return (b / 1048576).toFixed(1) + ' MB'; }
     function setSty(el, s) { el.closest('.style-g').querySelectorAll('.sopt').forEach(o => o.classList.remove('sel')); el.classList.add('sel'); S.style = s; }
@@ -342,7 +343,7 @@
             sourceText = await readPPTX(S.file);
           } else if (ext === 'ppt') {
             throw new Error('Old .ppt format is not supported. Please save as .pptx and try again.');
-          } else if (['mp3', 'wav', 'm4a', 'ogg', 'webm'].includes(ext)) {
+          } else if (['mp3', 'wav', 'm4a', 'ogg', 'webm', 'mp4', 'mpeg', 'mpga'].includes(ext)) {
             document.getElementById('procLbl').textContent = 'Transcribing audio...';
             const tr = await summaries.transcribe(S.file);
             if (!tr || !tr.ok) {
@@ -352,7 +353,7 @@
             const td = await tr.json();
             sourceText = td.text;
           } else {
-            throw new Error('Unsupported file type. Use PDF, PPTX, or audio (MP3, WAV, M4A, OGG).');
+            throw new Error('Unsupported file type. Use PDF, PPTX, or audio/video (MP3, WAV, M4A, MP4, OGG).');
           }
         }
 
