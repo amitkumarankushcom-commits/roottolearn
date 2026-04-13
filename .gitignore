@@ -8,6 +8,9 @@
 node_modules/
 package-lock.json
 .claude
+
+# Temp upload files
+backend/tmp/
 # System
 .DS_Store
 Thumbs.db

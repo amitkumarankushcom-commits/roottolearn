@@ -157,6 +157,14 @@ const summaries = {
     method:'POST',
     body: payload instanceof FormData ? payload : JSON.stringify(payload)
   }),
+  transcribe: (audioFile) => {
+    const fd = new FormData();
+    fd.append('audio', audioFile);
+    return apiFetch('/summaries/transcribe', {
+      method: 'POST',
+      body: fd
+    });
+  },
 };
 
 // ── Coupons

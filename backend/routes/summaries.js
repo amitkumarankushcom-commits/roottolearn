@@ -5,7 +5,28 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const OpenAI = require('openai');
 const supabase = require('../config/supabase');
+
+// ── Multer config for audio uploads (store in /tmp, max 25MB)
+const upload = multer({
+  dest: path.join(__dirname, '..', 'tmp'),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.mp3', '.wav', '.m4a', '.ogg', '.webm', '.mp4', '.mpeg', '.mpga'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error('Unsupported audio format. Use MP3, WAV, M4A, or OGG.'));
+  }
+});
+
+// ── OpenAI client (for Whisper transcription)
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // ── Middleware: Check JWT token
 const authenticateToken = (req, res, next) => {
@@ -261,6 +282,54 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('[DELETE SUMMARY ERROR]', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ── POST /api/summaries/transcribe (Audio → Text via Whisper)
+router.post('/transcribe', authenticateToken, upload.single('audio'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No audio file uploaded' });
+  }
+
+  const filePath = req.file.path;
+
+  try {
+    if (!openai) {
+      return res.status(503).json({ error: 'Audio transcription is not configured. Set OPENAI_API_KEY in environment.' });
+    }
+
+    // Rename temp file to include original extension (Whisper needs it)
+    const ext = path.extname(req.file.originalname).toLowerCase() || '.mp3';
+    const namedPath = filePath + ext;
+    fs.renameSync(filePath, namedPath);
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(namedPath),
+      model: 'whisper-1',
+      response_format: 'text',
+    });
+
+    // Clean up temp file
+    fs.unlink(namedPath, () => {});
+
+    const text = typeof transcription === 'string' ? transcription : transcription.text || '';
+    if (!text.trim()) {
+      return res.status(422).json({ error: 'Could not transcribe audio. The file may be empty or inaudible.' });
+    }
+
+    res.json({ success: true, text });
+
+  } catch (error) {
+    // Clean up temp file on error
+    try { fs.unlinkSync(filePath); } catch {}
+    try { fs.unlinkSync(filePath + path.extname(req.file.originalname)); } catch {}
+
+    console.error('[TRANSCRIBE ERROR]', error);
+
+    if (error.status === 401) {
+      return res.status(503).json({ error: 'Invalid OpenAI API key. Check OPENAI_API_KEY.' });
+    }
+    res.status(500).json({ error: 'Transcription failed: ' + (error.message || 'Unknown error') });
   }
 });
 

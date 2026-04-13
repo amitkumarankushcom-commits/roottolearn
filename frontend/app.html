@@ -336,8 +336,17 @@
           sourceTitle = S.file.name;
           if (ext === 'pdf') {
             sourceText = await readPDF(S.file);
+          } else if (['mp3', 'wav', 'm4a', 'ogg', 'webm'].includes(ext)) {
+            document.getElementById('procLbl').textContent = 'Transcribing audio...';
+            const tr = await summaries.transcribe(S.file);
+            if (!tr || !tr.ok) {
+              const err = await tr.json().catch(() => ({}));
+              throw new Error(err.error || 'Audio transcription failed');
+            }
+            const td = await tr.json();
+            sourceText = td.text;
           } else {
-            throw new Error('Only PDF or pasted text is supported right now.');
+            throw new Error('Unsupported file type. Use PDF or audio (MP3, WAV, M4A, OGG).');
           }
         }
 
@@ -378,26 +387,38 @@
       document.getElementById('resLang').textContent = langLbl;
       document.getElementById('hlRow').innerHTML = '';
       document.getElementById('sumBody').innerHTML = applyHL(text, S.occ);
-      document.getElementById('handwrittenBody').textContent = text;
+      document.getElementById('handwrittenBody').innerHTML = '';
       document.getElementById('twBox').style.display = 'none';
       const words = text.trim().split(/\s+/).length; document.getElementById('mWords').textContent = words; document.getElementById('mTime').textContent = Math.ceil(words / 200) + ' min'; document.getElementById('mLang').textContent = langLbl; document.getElementById('mStyle').textContent = S.style;
       document.getElementById('resContent').classList.add('show');
     }
     function applyHL(text, occ) {
-      let html = ''; const lines = text.split('\n'); let inList = false;
+      const occCfg = OCC_CFG[occ] || OCC_CFG.general;
+      let html = ''; const lines = text.split('\n'); let inList = false; let secNum = 0;
+      function fmtInline(s) {
+        let h = esc(s);
+        h = h.replace(/\*\*(.*?)\*\*/g, '<mark class="hl-key">$1</mark>');
+        h = h.replace(/\b(Definition|Formula|Key Point|Important|Note|Remember|Tip|Example|Conclusion|Answer)\b:?/gi, '<span class="hl-label">$&</span>');
+        return h;
+      }
       for (const line of lines) {
         const t = line.trim();
         if (!t) { if (inList) { html += '</ul>'; inList = false; } continue; }
         if (t.startsWith('## ') || t.startsWith('# ')) {
           if (inList) { html += '</ul>'; inList = false; }
+          secNum++;
           const heading = t.replace(/^#+\s*/, '');
-          html += `<h4>${esc(heading)}</h4>`;
+          html += `<div class="sec-head"><span class="sec-num" style="background:${occCfg.col}">${secNum}</span><h4>${esc(heading)}</h4></div>`;
+        } else if (t.startsWith('> ')) {
+          if (inList) { html += '</ul>'; inList = false; }
+          const quote = t.replace(/^>\s*/, '');
+          html += `<div class="hl-callout">⭐ ${fmtInline(quote)}</div>`;
         } else if (t.startsWith('- ') || t.startsWith('* ')) {
-          if (!inList) { html += '<ul>'; inList = true; }
-          html += `<li>${esc(t.replace(/^[-\*]\s*/, ''))}</li>`;
+          if (!inList) { html += '<ul class="sum-list">'; inList = true; }
+          html += `<li>${fmtInline(t.replace(/^[-\*]\s*/, ''))}</li>`;
         } else {
           if (inList) { html += '</ul>'; inList = false; }
-          html += `<p>${esc(t)}</p>`;
+          html += `<p>${fmtInline(t)}</p>`;
         }
       }
       if (inList) html += '</ul>';
@@ -408,66 +429,124 @@
     function dlRes() {
       if (!S.result) return;
       const occ = S.occ || 'general';
+      const occCfg = OCC_CFG[occ] || OCC_CFG.general;
       const langLabel = document.getElementById('resLang').textContent || 'English';
       const dateStr = new Date().toLocaleDateString();
       const timeStr = new Date().toLocaleTimeString();
       const words = S.result.trim().split(/\s+/).length;
-      const divider = '═'.repeat(60);
+      const sourceTitle = S.file ? S.file.name : 'Pasted Text';
+      const divider = '━'.repeat(60);
       const thinDiv = '─'.repeat(60);
 
       let txt = '';
       txt += divider + '\n';
-      txt += '  SUMMARY DOCUMENT\n';
+      txt += `  📚  ${occCfg.lbl.toUpperCase()} STUDY NOTES\n`;
       txt += divider + '\n\n';
-      txt += `  Generated : ${dateStr} at ${timeStr}\n`;
-      txt += `  Mode      : ${occ.charAt(0).toUpperCase() + occ.slice(1)}\n`;
-      txt += `  Language  : ${langLabel}\n`;
-      txt += `  Words     : ${words}\n`;
-      txt += `  Style     : ${S.style || 'simple'}\n\n`;
+      txt += `  Source     : ${sourceTitle}\n`;
+      txt += `  Generated  : ${dateStr} at ${timeStr}\n`;
+      txt += `  Mode       : ${occCfg.lbl}\n`;
+      txt += `  Language   : ${langLabel}\n`;
+      txt += `  Words      : ${words}\n`;
+      txt += `  Style      : ${(S.style || 'simple').charAt(0).toUpperCase() + (S.style || 'simple').slice(1)}\n`;
+      txt += `  Read Time  : ~${Math.ceil(words / 200)} min\n\n`;
       txt += thinDiv + '\n\n';
 
-      // Format summary text with proper section spacing
       const lines = S.result.split('\n');
+      let sectionNum = 0;
       for (const line of lines) {
         const t = line.trim();
         if (!t) { txt += '\n'; continue; }
         if (t.startsWith('## ') || t.startsWith('# ')) {
+          sectionNum++;
           const heading = t.replace(/^#+\s*/, '').toUpperCase();
           txt += '\n' + thinDiv + '\n';
-          txt += '  ▸ ' + heading + '\n';
+          txt += `  §${sectionNum}  ${heading}\n`;
           txt += thinDiv + '\n\n';
+        } else if (t.startsWith('> ')) {
+          const quote = t.replace(/^>\s*/, '');
+          txt += `  ⭐ IMPORTANT: ${quote.replace(/\*\*/g, '')}\n\n`;
         } else if (t.startsWith('- ') || t.startsWith('* ')) {
-          txt += '    • ' + t.replace(/^[-\*]\s*/, '') + '\n\n';
+          let bullet = t.replace(/^[-\*]\s*/, '');
+          // Mark **bold** keywords with brackets
+          bullet = bullet.replace(/\*\*(.*?)\*\*/g, '[$1]');
+          txt += `    ▸ ${bullet}\n`;
         } else {
-          txt += '  ' + t + '\n\n';
+          // Mark **bold** keywords with brackets
+          const clean = t.replace(/\*\*(.*?)\*\*/g, '[$1]');
+          txt += `  ${clean}\n\n`;
         }
       }
 
-      txt += '\n' + divider + '\n';
-      txt += '  Generated by RootToLearn AI\n';
+      txt += '\n' + thinDiv + '\n';
+      txt += '  📝 QUICK REVISION CHECKLIST\n';
+      txt += thinDiv + '\n';
+      txt += '    □  Re-read [bracketed] key terms\n';
+      txt += '    □  Cover bullet points, recall from section headings\n';
+      txt += '    □  Summarize each section in one sentence\n';
+      txt += '    □  Note down anything you couldn\'t recall\n\n';
+      txt += divider + '\n';
+      txt += `  Generated by RootToLearn AI • ${dateStr}\n`;
       txt += divider + '\n';
 
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' }));
-      a.download = `summary-${dateStr.replace(/\//g, '-')}.txt`;
+      a.download = `${occCfg.lbl}-Notes-${dateStr.replace(/\//g, '-')}.txt`;
       a.click();
-      toast('OK', 'Downloaded!');
+      toast('OK', 'Notes downloaded!');
     }
     function clrRes() { document.getElementById('resContent').classList.remove('show'); document.getElementById('resEmpty').style.display = ''; S.result = ''; }
-    function toggleHandwritten() { const note = document.getElementById('handwrittenNote'); const main = document.getElementById('sumBody'); if (note.style.display === 'none') { note.style.display = 'block'; main.style.display = 'none'; } else { note.style.display = 'none'; main.style.display = 'block'; } }
+    function toggleHandwritten() {
+      const note = document.getElementById('handwrittenNote');
+      const main = document.getElementById('sumBody');
+      if (note.style.display === 'none') {
+        note.style.display = 'block'; main.style.display = 'none';
+        // Render structured handwritten note
+        const body = document.getElementById('handwrittenBody');
+        let nh = '';
+        const lines = S.result.split('\n');
+        for (const line of lines) {
+          const t = line.trim();
+          if (!t) continue;
+          if (t.startsWith('## ') || t.startsWith('# ')) {
+            const h = t.replace(/^#+\s*/, '');
+            nh += `<div class="hw-heading">${esc(h)}</div>`;
+          } else if (t.startsWith('> ')) {
+            nh += `<div class="hw-important">★ ${esc(t.replace(/^>\s*/, '').replace(/\*\*/g, ''))}</div>`;
+          } else if (t.startsWith('- ') || t.startsWith('* ')) {
+            let b = t.replace(/^[-\*]\s*/, '');
+            b = esc(b).replace(/\*\*(.*?)\*\*/g, '<u>$1</u>');
+            nh += `<div class="hw-bullet">• ${b}</div>`;
+          } else {
+            let p = esc(t).replace(/\*\*(.*?)\*\*/g, '<u>$1</u>');
+            nh += `<div class="hw-para">${p}</div>`;
+          }
+        }
+        body.innerHTML = nh;
+      } else { note.style.display = 'none'; main.style.display = 'block'; }
+    }
     function dlPdfA4() {
       if (!S.result) return;
       const occ = S.occ || 'general';
-      const occLabel = occ.charAt(0).toUpperCase() + occ.slice(1);
+      const occCfg = OCC_CFG[occ] || OCC_CFG.general;
+      const occLabel = occCfg.lbl;
       const langLabel = document.getElementById('resLang').textContent || 'English';
       const dateStr = new Date().toLocaleDateString();
       const timeStr = new Date().toLocaleTimeString();
       const words = S.result.trim().split(/\s+/).length;
-      const filename = `summary-${dateStr.replace(/\//g, '-')}.pdf`;
+      const sourceTitle = S.file ? S.file.name : 'Pasted Text';
+      const filename = `${occLabel}-Notes-${dateStr.replace(/\//g, '-')}.pdf`;
       function pdfEsc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      // Highlight **bold** text and key patterns
+      function pdfHighlight(s) {
+        let h = pdfEsc(s);
+        h = h.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#1a1a1a;background:#FEF3C7;padding:1px 4px;border-radius:3px">$1</strong>');
+        h = h.replace(/\b(Definition|Formula|Key Point|Important|Note|Remember|Tip|Example|Conclusion|Answer)\b:?/gi,
+          '<strong style="color:#B45309;font-weight:700">$&</strong>');
+        return h;
+      }
 
       const opt = {
-        margin: [15, 18, 15, 18],
+        margin: [12, 14, 16, 14],
         filename: filename,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
@@ -478,44 +557,88 @@
       let bodyHtml = '';
       const lines = S.result.split('\n');
       let inList = false;
+      let sectionNum = 0;
       for (const line of lines) {
         const t = line.trim();
         if (!t) { if (inList) { bodyHtml += '</ul>'; inList = false; } continue; }
         if (t.startsWith('## ') || t.startsWith('# ')) {
           if (inList) { bodyHtml += '</ul>'; inList = false; }
+          sectionNum++;
           const heading = t.replace(/^#+\s*/, '');
-          bodyHtml += `<h3 style="color:#1a1a1a;font-size:13.5px;font-weight:600;margin:22px 0 10px 0;padding-bottom:6px;border-bottom:1px solid #e5e5e5;letter-spacing:.2px">${pdfEsc(heading)}</h3>`;
+          bodyHtml += `<div style="margin:20px 0 10px 0;page-break-inside:avoid">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <div style="background:${occCfg.col};color:#fff;font-size:10px;font-weight:800;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;flex-shrink:0">${sectionNum}</div>
+              <h3 style="color:#1a1a1a;font-size:14px;font-weight:700;margin:0;letter-spacing:.3px">${pdfEsc(heading)}</h3>
+            </div>
+            <div style="height:2px;background:linear-gradient(90deg,${occCfg.col},transparent);border-radius:2px;margin-bottom:8px"></div>
+          </div>`;
+        } else if (t.startsWith('> ')) {
+          if (inList) { bodyHtml += '</ul>'; inList = false; }
+          const quote = t.replace(/^>\s*/, '');
+          bodyHtml += `<div style="margin:8px 0;padding:10px 14px;background:#FEF3C7;border-left:4px solid #F59E0B;border-radius:0 6px 6px 0;font-size:11px;line-height:1.7;color:#92400E;font-weight:600;page-break-inside:avoid">⭐ ${pdfHighlight(quote)}</div>`;
         } else if (t.startsWith('- ') || t.startsWith('* ')) {
-          if (!inList) { bodyHtml += '<ul style="margin:6px 0 6px 18px;padding:0;list-style:disc;color:#555">'; inList = true; }
-          bodyHtml += `<li style="margin:5px 0;font-size:11px;line-height:1.8;color:#333">${pdfEsc(t.replace(/^[-\*]\s*/, ''))}</li>`;
+          if (!inList) { bodyHtml += '<ul style="margin:4px 0 4px 12px;padding:0;list-style:none;color:#444">'; inList = true; }
+          const bullet = t.replace(/^[-\*]\s*/, '');
+          bodyHtml += `<li style="margin:5px 0;font-size:11px;line-height:1.8;color:#333;padding-left:14px;position:relative"><span style="position:absolute;left:0;color:${occCfg.col};font-weight:bold">▸</span>${pdfHighlight(bullet)}</li>`;
         } else {
           if (inList) { bodyHtml += '</ul>'; inList = false; }
-          bodyHtml += `<p style="margin:7px 0;font-size:11px;line-height:1.85;color:#333">${pdfEsc(t)}</p>`;
+          bodyHtml += `<p style="margin:6px 0;font-size:11px;line-height:1.9;color:#333;text-align:justify">${pdfHighlight(t)}</p>`;
         }
       }
       if (inList) bodyHtml += '</ul>';
 
       const content = document.createElement('div');
-      content.style.cssText = 'padding:28px 24px;font-family:Inter,system-ui,-apple-system,sans-serif;color:#333';
+      content.style.cssText = 'padding:24px 20px;font-family:Inter,system-ui,-apple-system,sans-serif;color:#333;max-width:210mm';
       content.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
-          <div style="background:#F7B731;color:#000;font-size:17px;font-weight:900;width:30px;height:30px;line-height:30px;text-align:center;border-radius:6px;flex-shrink:0">R</div>
-          <div>
-            <div style="font-size:15px;font-weight:700;color:#1a1a1a">Summary Document</div>
-            <div style="font-size:9px;color:#999;margin-top:2px">${dateStr} at ${timeStr}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:14px;border-bottom:3px solid ${occCfg.col}">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="background:#F7B731;color:#000;font-size:18px;font-weight:900;width:34px;height:34px;line-height:34px;text-align:center;border-radius:8px;flex-shrink:0">R</div>
+            <div>
+              <div style="font-size:16px;font-weight:800;color:#1a1a1a;letter-spacing:.3px">${occLabel} Study Notes</div>
+              <div style="font-size:9px;color:#888;margin-top:2px">${sourceTitle}</div>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:8px;color:#aaa">${dateStr} • ${timeStr}</div>
+            <div style="display:inline-block;margin-top:4px;background:${occCfg.bg};color:${occCfg.col};font-size:8px;font-weight:700;padding:3px 10px;border-radius:10px;border:1px solid ${occCfg.bd}">${occLabel} Mode</div>
           </div>
         </div>
-        <div style="display:flex;gap:20px;font-size:9px;color:#666;padding:8px 14px;background:#f9f9f9;border-radius:6px;margin-bottom:20px">
-          <span><strong style="color:#333">Mode</strong> ${occLabel}</span>
-          <span><strong style="color:#333">Language</strong> ${langLabel}</span>
-          <span><strong style="color:#333">Style</strong> ${(S.style||'simple').charAt(0).toUpperCase()+(S.style||'simple').slice(1)}</span>
-          <span><strong style="color:#333">Words</strong> ${words}</span>
+
+        <div style="display:flex;gap:0;margin-bottom:16px;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb">
+          <div style="flex:1;padding:8px 12px;background:#f9fafb;border-right:1px solid #e5e7eb;text-align:center">
+            <div style="font-size:8px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;font-weight:600">Words</div>
+            <div style="font-size:13px;font-weight:800;color:#1a1a1a;margin-top:2px">${words}</div>
+          </div>
+          <div style="flex:1;padding:8px 12px;background:#f9fafb;border-right:1px solid #e5e7eb;text-align:center">
+            <div style="font-size:8px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;font-weight:600">Read Time</div>
+            <div style="font-size:13px;font-weight:800;color:#1a1a1a;margin-top:2px">${Math.ceil(words/200)} min</div>
+          </div>
+          <div style="flex:1;padding:8px 12px;background:#f9fafb;border-right:1px solid #e5e7eb;text-align:center">
+            <div style="font-size:8px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;font-weight:600">Language</div>
+            <div style="font-size:13px;font-weight:800;color:#1a1a1a;margin-top:2px">${langLabel}</div>
+          </div>
+          <div style="flex:1;padding:8px 12px;background:#f9fafb;text-align:center">
+            <div style="font-size:8px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;font-weight:600">Sections</div>
+            <div style="font-size:13px;font-weight:800;color:#1a1a1a;margin-top:2px">${sectionNum}</div>
+          </div>
         </div>
-        <div style="border-top:1px solid #e5e5e5;padding-top:14px">
+
+        <div style="padding-top:4px">
           ${bodyHtml}
         </div>
-        <div style="margin-top:30px;padding-top:10px;border-top:1px solid #eee;text-align:center">
-          <span style="color:#bbb;font-size:8px">Generated by RootToLearn AI</span>
+
+        <div style="margin-top:28px;padding:12px 16px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;page-break-inside:avoid">
+          <div style="font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Quick Revision Tips</div>
+          <div style="font-size:9px;color:#555;line-height:1.7">
+            ▸ Re-read highlighted <strong style="background:#FEF3C7;padding:0 3px;border-radius:2px">key terms</strong> before exam &nbsp;
+            ▸ Cover bullet points and try to recall from headings &nbsp;
+            ▸ Focus on numbered sections for structured answers
+          </div>
+        </div>
+
+        <div style="margin-top:16px;padding-top:8px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center">
+          <span style="color:#bbb;font-size:7.5px">Generated by RootToLearn AI • ${dateStr}</span>
+          <span style="color:#ccc;font-size:7px">Page content for ${occLabel.toLowerCase()} use</span>
         </div>
       `;
 

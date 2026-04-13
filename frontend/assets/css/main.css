@@ -1,5 +1,5 @@
-/* frontend/assets/css/main.css — SummarIQ Shared Styles */
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* frontend/assets/css/main.css — RootToLearn Shared Styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Syne:wght@400;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Caveat:wght@400;600;700&display=swap');
 
 :root {
   --bg: #07080F;
@@ -39,11 +39,15 @@ html {
 }
 
 body {
-  font-family: 'Manrope', sans-serif;
+  font-family: 'Inter', 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
   font-size: 15px;
-  line-height: 1.65;
+  line-height: 1.7;
+  letter-spacing: -.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 h1,
@@ -51,7 +55,8 @@ h2,
 h3,
 h4 {
   font-family: 'Syne', sans-serif;
-  line-height: 1.2;
+  line-height: 1.25;
+  letter-spacing: -.02em;
 }
 
 a {
@@ -61,7 +66,7 @@ a {
 
 button {
   cursor: pointer;
-  font-family: 'Manrope', sans-serif;
+  font-family: 'Inter', 'Manrope', sans-serif;
   border: none;
   outline: none;
 }
@@ -69,7 +74,7 @@ button {
 input,
 select,
 textarea {
-  font-family: 'Manrope', sans-serif;
+  font-family: 'Inter', 'Manrope', sans-serif;
   outline: none;
 }
 
@@ -84,8 +89,8 @@ textarea {
 
 /* Shared components */
 .btn-accent {
-  padding: .42rem 1rem;
-  border-radius: 7px;
+  padding: .48rem 1.15rem;
+  border-radius: 8px;
   font-size: .85rem;
   font-weight: 700;
   color: #000;
@@ -94,6 +99,7 @@ textarea {
   cursor: pointer;
   font-family: 'Syne', sans-serif;
   transition: all .2s;
+  letter-spacing: .01em;
 }
 
 .btn-accent:hover {
@@ -102,8 +108,8 @@ textarea {
 }
 
 .btn-ghost {
-  padding: .38rem .9rem;
-  border-radius: 7px;
+  padding: .42rem 1rem;
+  border-radius: 8px;
   font-size: .85rem;
   font-weight: 500;
   color: var(--dim);
@@ -111,6 +117,7 @@ textarea {
   border: 1px solid var(--border);
   transition: all .2s;
   cursor: pointer;
+  letter-spacing: .01em;
 }
 
 .btn-ghost:hover {
@@ -131,25 +138,26 @@ textarea {
 
 .flabel {
   display: block;
-  font-size: .68rem;
+  font-size: .7rem;
   font-weight: 700;
   color: var(--dim);
   text-transform: uppercase;
-  letter-spacing: .07em;
-  margin-bottom: .35rem;
+  letter-spacing: .08em;
+  margin-bottom: .4rem;
   font-family: 'Syne', sans-serif;
 }
 
 .finput,
 .fselect {
   width: 100%;
-  padding: .6rem .85rem;
+  padding: .62rem .9rem;
   border-radius: 8px;
   background: var(--bg2);
   border: 1px solid var(--border2);
   color: var(--text);
   font-size: .875rem;
   transition: border-color .2s;
+  letter-spacing: .01em;
 }
 .pass-input {
   padding-right: 2.5rem;
@@ -193,8 +201,9 @@ textarea {
 }
 
 .toast-txt {
-  font-size: .83rem;
-  font-weight: 500;
+  font-size: .84rem;
+  font-weight: 600;
+  letter-spacing: .01em;
 }
 
 /* Ad slots (free users) */
