@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/assets/css/app.css">
   <link rel="stylesheet" href="/assets/css/pricing.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
@@ -336,6 +337,11 @@
           sourceTitle = S.file.name;
           if (ext === 'pdf') {
             sourceText = await readPDF(S.file);
+          } else if (ext === 'pptx') {
+            document.getElementById('procLbl').textContent = 'Extracting slides...';
+            sourceText = await readPPTX(S.file);
+          } else if (ext === 'ppt') {
+            throw new Error('Old .ppt format is not supported. Please save as .pptx and try again.');
           } else if (['mp3', 'wav', 'm4a', 'ogg', 'webm'].includes(ext)) {
             document.getElementById('procLbl').textContent = 'Transcribing audio...';
             const tr = await summaries.transcribe(S.file);
@@ -346,7 +352,7 @@
             const td = await tr.json();
             sourceText = td.text;
           } else {
-            throw new Error('Unsupported file type. Use PDF or audio (MP3, WAV, M4A, OGG).');
+            throw new Error('Unsupported file type. Use PDF, PPTX, or audio (MP3, WAV, M4A, OGG).');
           }
         }
 
@@ -382,6 +388,41 @@
       finally { btn.classList.remove('loading'); btn.disabled = false; }
     }
     async function readPDF(file) { try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; const ab = await file.arrayBuffer(); const pdf = await pdfjsLib.getDocument(ab).promise; let text = ''; const max = Math.min(pdf.numPages, 10); for (let i = 1; i <= max; i++) { const pg = await pdf.getPage(i); const ct = await pg.getTextContent(); text += ct.items.map(x => x.str).join(' ') + '\n'; } return text || `[PDF: ${file.name}]`; } catch { return `[PDF: ${file.name}] Business document.`; } }
+    async function readPPTX(file) {
+      try {
+        const ab = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(ab);
+        let slides = [];
+        // PPTX slides are in ppt/slides/slide1.xml, slide2.xml, etc.
+        const slideFiles = Object.keys(zip.files)
+          .filter(n => /^ppt\/slides\/slide\d+\.xml$/i.test(n))
+          .sort((a, b) => {
+            const na = parseInt(a.match(/slide(\d+)/)[1]);
+            const nb = parseInt(b.match(/slide(\d+)/)[1]);
+            return na - nb;
+          });
+        for (const sf of slideFiles) {
+          const xml = await zip.files[sf].async('string');
+          // Extract all <a:t> text nodes
+          const texts = [];
+          const re = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g;
+          let m;
+          while ((m = re.exec(xml)) !== null) {
+            const t = m[1].trim();
+            if (t) texts.push(t);
+          }
+          if (texts.length) {
+            const slideNum = sf.match(/slide(\d+)/)[1];
+            slides.push(`Slide ${slideNum}: ${texts.join(' ')}`);
+          }
+        }
+        const result = slides.join('\n\n');
+        if (!result.trim()) throw new Error('empty');
+        return result;
+      } catch {
+        throw new Error('Could not extract text from PPTX. The file may be empty or corrupted.');
+      }
+    }
     function renderResult(text, hl, tw, langLbl, occ) {
       const ob = document.getElementById('resOcc'); ob.textContent = occ.lbl; ob.style.cssText = `background:${occ.bg};color:${occ.col};border-color:${occ.bd};`;
       document.getElementById('resLang').textContent = langLbl;
