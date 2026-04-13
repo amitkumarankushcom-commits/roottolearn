@@ -409,7 +409,7 @@ router.post('/transcribe', authenticateToken, upload.single('audio'), async (req
     console.error('[TRANSCRIBE ERROR]', error);
 
     if (error.status === 401) {
-      return res.status(503).json({ error: 'Invalid OpenAI API key. Check OPENAI_API_KEY.' });
+      return res.status(503).json({ error: 'Audio/video transcription requires a valid OpenAI API key (Whisper). This is separate from the AI model selection. Please set a valid OPENAI_API_KEY or use a PDF/text file instead.' });
     }
     res.status(500).json({ error: 'Transcription failed: ' + (error.message || 'Unknown error') });
   }
