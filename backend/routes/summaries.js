@@ -14,7 +14,7 @@ const supabase = require('../config/supabase');
 // ── Multer config for audio uploads (store in /tmp, max 25MB)
 const upload = multer({
   dest: path.join(__dirname, '..', 'tmp'),
-  limits: { fileSize: 25 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['.mp3', '.wav', '.m4a', '.ogg', '.webm', '.mp4', '.mpeg', '.mpga'];
     const ext = path.extname(file.originalname).toLowerCase();
