@@ -9,9 +9,21 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const OpenAI = require('openai');
+const Anthropic = require('@anthropic-ai/sdk');
 const supabase = require('../config/supabase');
 
-// ── Multer config for audio uploads (store in /tmp, max 25MB)
+// ── AI clients
+const openaiClient = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+
+const deepseekClient = process.env.DEEPSEEK_API_KEY
+  ? new OpenAI({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: 'https://api.deepseek.com' })
+  : null;
+
+const anthropicClient = process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY !== 'dummy'
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
 const upload = multer({
   dest: path.join(__dirname, '..', 'tmp'),
   limits: { fileSize: 100 * 1024 * 1024 },
@@ -22,11 +34,6 @@ const upload = multer({
     else cb(new Error('Unsupported audio format. Use MP3, WAV, M4A, or OGG.'));
   }
 });
-
-// ── OpenAI client (for Whisper transcription)
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
 
 // ── Middleware: Check JWT token
 const authenticateToken = (req, res, next) => {
@@ -112,6 +119,72 @@ function buildSummaryFromText(text, style = 'simple', occupation = 'general') {
   return parts.join('\n');
 }
 
+// ── AI Summarization using selected model
+async function aiSummarize(text, style, occupation, language, model) {
+  const styleGuide = {
+    simple: 'Write a clear, concise summary with sections: Overview, Main Points (as bullet list), Conclusion.',
+    detailed: 'Write a thorough detailed summary with sections: Overview, Detailed Analysis (multiple paragraphs), Summary & Takeaways.',
+    bullets: 'Write the entire summary as organized bullet points with sections: Overview, Key Points, Conclusion.'
+  };
+
+  const prompt = `You are an expert summarizer for ${occupation || 'general'} audience.
+Summarize the following text in ${language || 'English'}.
+${styleGuide[style] || styleGuide.simple}
+Use markdown formatting with ## headings.
+Mark important terms with **bold**.
+Add a > blockquote callout for the most critical takeaway.
+At the end, add:
+---JSON---
+{"highlights":[{"icon":"📌","val":"<key point>","label":"Highlight"},{"icon":"📊","val":"<main fact>","label":"Fact"},{"icon":"⚡","val":"<action item>","label":"Next Step"}],"takeaways":["<takeaway 1>","<takeaway 2>","<takeaway 3>"]}
+---END---
+
+Text to summarize:
+${text.slice(0, 60000)}`;
+
+  // Try selected model, fall back to others if unavailable
+  const modelOrder = model === 'gpt'
+    ? ['gpt', 'deepseek', 'claude']
+    : model === 'deepseek'
+      ? ['deepseek', 'gpt', 'claude']
+      : ['claude', 'deepseek', 'gpt'];
+
+  for (const m of modelOrder) {
+    try {
+      if (m === 'claude' && anthropicClient) {
+        const resp = await anthropicClient.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4096,
+          messages: [{ role: 'user', content: prompt }]
+        });
+        return resp.content[0].text;
+      }
+      if (m === 'gpt' && openaiClient) {
+        const resp = await openaiClient.chat.completions.create({
+          model: 'gpt-4o-mini',
+          max_tokens: 4096,
+          messages: [{ role: 'user', content: prompt }]
+        });
+        return resp.choices[0].message.content;
+      }
+      if (m === 'deepseek' && deepseekClient) {
+        const resp = await deepseekClient.chat.completions.create({
+          model: 'deepseek-chat',
+          max_tokens: 4096,
+          messages: [{ role: 'user', content: prompt }]
+        });
+        return resp.choices[0].message.content;
+      }
+    } catch (err) {
+      console.warn(`[AI SUMMARIZE] ${m} failed:`, err.message);
+      continue;
+    }
+  }
+
+  // All models failed — fall back to local text splitter
+  console.warn('[AI SUMMARIZE] All models failed, using local fallback');
+  return null;
+}
+
 // ── GET /api/summaries
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -179,10 +252,19 @@ router.post('/', authenticateToken, async (req, res) => {
     const { title, text, language, occupation, style, model } = req.body;
 
     const fileName = title || `Summary ${new Date().toLocaleString()}`;
-    const summaryText = buildSummaryFromText(text, style, occupation);
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: 'Text content is required' });
+    }
+
+    // Try AI summarization first, fall back to local text splitter
+    let summaryText = await aiSummarize(text, style, occupation, language, model || 'claude');
+    if (!summaryText) {
+      summaryText = buildSummaryFromText(text, style, occupation);
+    }
 
     if (!summaryText) {
-      return res.status(400).json({ error: 'Text content is required' });
+      return res.status(400).json({ error: 'Could not generate summary' });
     }
 
     const wordCount = summaryText.trim().split(/\s+/).length;
@@ -294,7 +376,7 @@ router.post('/transcribe', authenticateToken, upload.single('audio'), async (req
   const filePath = req.file.path;
 
   try {
-    if (!openai) {
+    if (!openaiClient) {
       return res.status(503).json({ error: 'Audio transcription is not configured. Set OPENAI_API_KEY in environment.' });
     }
 
@@ -303,7 +385,7 @@ router.post('/transcribe', authenticateToken, upload.single('audio'), async (req
     const namedPath = filePath + ext;
     fs.renameSync(filePath, namedPath);
 
-    const transcription = await openai.audio.transcriptions.create({
+    const transcription = await openaiClient.audio.transcriptions.create({
       file: fs.createReadStream(namedPath),
       model: 'whisper-1',
       response_format: 'text',
